@@ -1,5 +1,6 @@
-import { Stack, usePathname, useRouter, Href } from "expo-router";
+import { Href, Stack, usePathname, useRouter } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ToastProvider } from "../context/ToastContext";
 
@@ -60,10 +61,12 @@ export function Gate() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <Gate />
-      </ToastProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <Gate />
+        </ToastProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

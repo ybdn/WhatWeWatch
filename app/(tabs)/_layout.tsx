@@ -45,6 +45,7 @@ export default function TabsLayout() {
           height: Platform.select({ ios: 88, android: 70, default: 60 }),
           paddingBottom: Platform.select({ ios: 24, android: 16, default: 8 }),
         },
+        tabBarSafeAreaInset: { bottom: 0 },
         tabBarIcon: ({ color, size }) => {
           let name: keyof typeof Ionicons.glyphMap = "home";
           switch (route.name) {
