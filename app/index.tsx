@@ -1,12 +1,16 @@
-import {View, Text } from "react-native";
+import { Text, useColorScheme, View } from "react-native";
+import { getTheme } from "../theme/colors";
 
 export default function Index() {
+  const scheme = useColorScheme();
+  const theme = getTheme(scheme);
   return (
     <View
       style={{
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
+        backgroundColor: theme.colors.background,
       }}
     >
       <Text
@@ -15,6 +19,7 @@ export default function Index() {
           fontWeight: "bold",
           textAlign: "center",
           margin: 16,
+          color: theme.colors.text,
         }}
       >
         WhatWeWatch arrive bientôt ! 🔥

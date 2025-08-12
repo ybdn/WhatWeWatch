@@ -1,12 +1,16 @@
-import {View, Text} from "react-native";
+import { Text, useColorScheme, View } from "react-native";
+import { getTheme } from "../theme/colors";
 
 export default function Lists() {
+  const scheme = useColorScheme();
+  const theme = getTheme(scheme);
   return (
     <View
       style={{
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
+        backgroundColor: theme.colors.background,
       }}
     >
       <Text
@@ -15,9 +19,10 @@ export default function Lists() {
           fontWeight: "bold",
           textAlign: "center",
           margin: 16,
+          color: theme.colors.text,
         }}
       >
-        Check out your watchlist on WhatWeWatch! 📺
+        Gèrez vos listes de films et séries sur WhatWeWatch ! 📚
       </Text>
     </View>
   );
