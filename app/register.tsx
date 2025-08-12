@@ -3,7 +3,6 @@ import { Link, Redirect } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Button,
   Text,
   TextInput,
@@ -11,7 +10,9 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { PasswordStrengthBar } from "../components/PasswordStrengthBar";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { passwordHints, passwordScore } from "../lib/password";
 import { getTheme } from "../theme/colors";
 
@@ -20,6 +21,7 @@ export default function RegisterScreen() {
   const theme = getTheme(scheme);
   const { signUp, user, loading, signInWithGoogle, signInWithApple } =
     useAuth();
+  const { show } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -41,9 +43,11 @@ export default function RegisterScreen() {
       if (!isEmailValid) throw new Error("Email invalide");
       await signUp(emailNorm, password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      show("Compte créé. Vérifie ton email.", "success");
     } catch (e: any) {
       setError(e.message || "Erreur d'inscription");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      show(e.message || "Erreur inscription", "error");
     } finally {
       setPending(false);
     }
@@ -100,9 +104,7 @@ export default function RegisterScreen() {
       />
       {password.length > 0 && (
         <View style={{ gap: 4 }}>
-          <Text style={{ color: theme.colors.text, fontSize: 12 }}>
-            Sécurité: {score}/4
-          </Text>
+          <PasswordStrengthBar password={password} />
           {hints.length > 0 && (
             <Text style={{ color: "orange", fontSize: 11 }}>
               Manque: {hints.join(", ")}
@@ -135,7 +137,9 @@ export default function RegisterScreen() {
       >
         <TouchableOpacity
           onPress={() =>
-            signInWithGoogle().catch((e) => Alert.alert("Google", e.message))
+            signInWithGoogle().catch((e) =>
+              show(e.message || "Erreur Google", "error")
+            )
           }
           style={{
             padding: 12,
@@ -157,7 +161,9 @@ export default function RegisterScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() =>
-            signInWithApple().catch((e) => Alert.alert("Apple", e.message))
+            signInWithApple().catch((e) =>
+              show(e.message || "Erreur Apple", "error")
+            )
           }
           style={{
             padding: 12,

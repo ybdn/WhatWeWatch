@@ -3,7 +3,6 @@ import { Link, Redirect } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Button,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { getTheme } from "../theme/colors";
 
 export default function LoginScreen() {
@@ -19,6 +19,7 @@ export default function LoginScreen() {
   const theme = getTheme(scheme);
   const { signIn, user, loading, signInWithGoogle, signInWithApple } =
     useAuth();
+  const { show } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +39,11 @@ export default function LoginScreen() {
       if (!isEmailValid) throw new Error("Email invalide");
       await signIn(emailNorm, password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      show("Connexion réussie", "success");
     } catch (e: any) {
       setError(e.message || "Erreur de connexion");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      show(e.message || "Erreur de connexion", "error");
     } finally {
       setPending(false);
     }
@@ -120,7 +123,9 @@ export default function LoginScreen() {
       >
         <TouchableOpacity
           onPress={() =>
-            signInWithGoogle().catch((e) => Alert.alert("Google", e.message))
+            signInWithGoogle().catch((e) =>
+              show(e.message || "Erreur Google", "error")
+            )
           }
           style={{
             padding: 12,
@@ -142,7 +147,9 @@ export default function LoginScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() =>
-            signInWithApple().catch((e) => Alert.alert("Apple", e.message))
+            signInWithApple().catch((e) =>
+              show(e.message || "Erreur Apple", "error")
+            )
           }
           style={{
             padding: 12,

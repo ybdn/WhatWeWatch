@@ -1,6 +1,7 @@
 import { Stack, usePathname, useRouter } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
+import { ToastProvider } from "../context/ToastContext";
 
 function Gate() {
   const { loading, user, profile } = useAuth();
@@ -49,6 +50,8 @@ function Gate() {
       <Stack.Screen name="reset-password" />
       <Stack.Screen name="profile-completion" />
       <Stack.Screen name="verify-email" />
+      <Stack.Screen name="mfa-enable" />
+      <Stack.Screen name="mfa-manage" />
     </Stack>
   );
 }
@@ -56,7 +59,9 @@ function Gate() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <Gate />
+      <ToastProvider>
+        <Gate />
+      </ToastProvider>
     </AuthProvider>
   );
 }

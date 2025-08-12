@@ -1,10 +1,12 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Button, Text, View } from "react-native";
+import { ActivityIndicator, Button, Text, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
 export default function VerifyEmailScreen() {
   const { user, refreshEmailConfirmation, resendConfirmationEmail } = useAuth();
+  const { show } = useToast();
   const [checking, setChecking] = useState(false);
   const [sending, setSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -15,7 +17,7 @@ export default function VerifyEmailScreen() {
       setChecking(true);
       await refreshEmailConfirmation();
     } catch (e: any) {
-      Alert.alert("Erreur", e.message);
+      show(e.message || "Erreur", "error");
     } finally {
       setChecking(false);
     }
@@ -27,10 +29,10 @@ export default function VerifyEmailScreen() {
     try {
       setSending(true);
       await resendConfirmationEmail(user.email);
-      Alert.alert("Email envoyé", "Vérifie ta boîte de réception.");
+      show("Email envoyé", "success");
       setCooldown(45);
     } catch (e: any) {
-      Alert.alert("Erreur", e.message);
+      show(e.message || "Erreur", "error");
     } finally {
       setSending(false);
     }
@@ -47,6 +49,15 @@ export default function VerifyEmailScreen() {
       router.replace("/(tabs)");
     }
   }, [user?.emailConfirmed, router]);
+
+  // Polling auto toutes les 6s si non confirmé
+  useEffect(() => {
+    if (user?.emailConfirmed) return;
+    const interval = setInterval(() => {
+      refreshEmailConfirmation().catch(() => {});
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [user?.emailConfirmed, refreshEmailConfirmation]);
 
   return (
     <View style={{ flex: 1, padding: 24, justifyContent: "center", gap: 24 }}>

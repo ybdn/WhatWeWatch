@@ -12,6 +12,8 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { deleteCurrentAccount } from "../../lib/accountService";
 import { upsertProfile } from "../../lib/profileService";
 import { supabase } from "../../lib/supabase";
 import { getTheme } from "../../theme/colors";
@@ -20,15 +22,13 @@ export default function ProfileScreen() {
   const scheme = useColorScheme();
   const theme = getTheme(scheme);
   const { signOut, user, profile, refreshProfile } = useAuth();
+  const { show } = useToast();
   const displayName = profile?.display_name || user?.email || "";
 
   const pickAvatar = async () => {
     if (!user || !supabase) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission refusée");
-      return;
-    }
+    if (status !== "granted") return show("Permission refusée", "error");
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
@@ -40,7 +40,7 @@ export default function ProfileScreen() {
     if (!asset.fileSize) {
       // certains environnements ne fournissent pas fileSize; on continue
     } else if (asset.fileSize > 2 * 1024 * 1024) {
-      Alert.alert("Image trop lourde (max 2MB)");
+      show("Image trop lourde (max 2MB)", "error");
       return;
     }
     // Compression
@@ -54,10 +54,7 @@ export default function ProfileScreen() {
     const { error: uploadError } = await supabase.storage
       .from("public")
       .upload(filePath, file, { upsert: true, contentType: "image/jpeg" });
-    if (uploadError) {
-      Alert.alert("Upload", uploadError.message);
-      return;
-    }
+    if (uploadError) return show(uploadError.message, "error");
     const { data: publicUrlData } = supabase.storage
       .from("public")
       .getPublicUrl(filePath);
@@ -66,8 +63,9 @@ export default function ProfileScreen() {
       const bustUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
       await upsertProfile({ id: user.id, avatar_url: bustUrl });
       await refreshProfile();
+      show("Avatar mis à jour", "success");
     } catch (e: any) {
-      Alert.alert("Profil", e.message);
+      show(e.message || "Erreur profil", "error");
     }
   };
   return (
@@ -111,7 +109,39 @@ export default function ProfileScreen() {
           Compléter mon profil
         </Link>
       )}
+      <Link href="/mfa-enable" style={{ color: theme.colors.tabBarActive }}>
+        Activer MFA
+      </Link>
+      <Link href="/mfa-manage" style={{ color: theme.colors.tabBarActive }}>
+        Gérer MFA
+      </Link>
       <Button title="Se déconnecter" onPress={signOut} />
+      <View style={{ height: 12 }} />
+      <Button
+        color="#b00020"
+        title="Supprimer mon compte"
+        onPress={() => {
+          Alert.alert(
+            "Supprimer le compte",
+            "Cette action est définitive. Confirmer la suppression ?",
+            [
+              { text: "Annuler", style: "cancel" },
+              {
+                text: "Supprimer",
+                style: "destructive",
+                onPress: async () => {
+                  try {
+                    await deleteCurrentAccount();
+                    show("Compte supprimé", "success");
+                  } catch (e: any) {
+                    show(e.message || "Erreur suppression", "error");
+                  }
+                },
+              },
+            ]
+          );
+        }}
+      />
     </View>
   );
 }
