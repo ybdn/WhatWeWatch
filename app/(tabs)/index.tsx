@@ -36,7 +36,7 @@ export default function HomeScreen() {
             letterSpacing: -0.5,
           }}
         >
-          Salut {displayName || "!"}
+          Salut {displayName} !
         </Text>
         <Text
           style={{
