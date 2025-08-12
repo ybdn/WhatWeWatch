@@ -2,6 +2,7 @@ import { Redirect } from "expo-router";
 import React, { useState } from "react";
 import { Button, Text, TextInput, useColorScheme, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { upsertProfile } from "../lib/profileService";
 import { getTheme } from "../theme/colors";
 
 export default function ProfileCompletion() {
@@ -9,10 +10,17 @@ export default function ProfileCompletion() {
   const scheme = useColorScheme();
   const theme = getTheme(scheme);
   const [displayName, setDisplayName] = useState("");
+  const [saving, setSaving] = useState(false);
   if (!user) return <Redirect href="/login" />;
 
   const save = async () => {
-    // TODO: appeler supabase.from('profiles').upsert
+    if (!user) return;
+    setSaving(true);
+    try {
+      await upsertProfile({ id: user.id, display_name: displayName.trim() });
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <View
@@ -42,9 +50,9 @@ export default function ProfileCompletion() {
         placeholderTextColor={theme.colors.tabBarInactive}
       />
       <Button
-        title="Enregistrer"
+        title={saving ? "Sauvegarde..." : "Enregistrer"}
         onPress={save}
-        disabled={!displayName.trim()}
+        disabled={!displayName.trim() || saving}
       />
     </View>
   );

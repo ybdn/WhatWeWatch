@@ -9,6 +9,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { fetchProfile, Profile } from "../lib/profileService";
 import { supabase } from "../lib/supabase";
 
 export interface AuthUser {
@@ -19,6 +20,7 @@ export interface AuthUser {
 
 interface AuthContextType {
   user: AuthUser | null;
+  profile?: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -26,6 +28,9 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  refreshEmailConfirmation: () => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +39,7 @@ const LOCAL_USER_KEY = "WWW_AUTH_USER";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Initialize
@@ -47,18 +53,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email: data.session.user.email ?? null,
             emailConfirmed: !!data.session.user.email_confirmed_at,
           });
+          try {
+            setProfile(await fetchProfile(data.session.user.id));
+          } catch {}
         }
         // Listen auth changes
         supabase.auth.onAuthStateChange(
-          (_: AuthChangeEvent, session: Session | null) => {
+          async (_: AuthChangeEvent, session: Session | null) => {
             if (session?.user) {
               setUser({
                 id: session.user.id,
                 email: session.user.email ?? null,
                 emailConfirmed: !!session.user.email_confirmed_at,
               });
+              try {
+                setProfile(await fetchProfile(session.user.id));
+              } catch {}
             } else {
               setUser(null);
+              setProfile(null);
             }
           }
         );
@@ -139,6 +152,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (user && supabase) {
+      setProfile(await fetchProfile(user.id));
+    }
+  }, [user]);
+
+  const refreshEmailConfirmation = useCallback(async () => {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              emailConfirmed: !!data.user?.email_confirmed_at,
+            }
+          : {
+              id: data.user.id,
+              email: data.user.email ?? null,
+              emailConfirmed: !!data.user.email_confirmed_at,
+            }
+      );
+    }
+  }, []);
+
+  const resendConfirmationEmail = useCallback(async (email: string) => {
+    if (!supabase) throw new Error("Non disponible en local");
+    if (!email) throw new Error("Email requis");
+    // Supabase v2: auth.resend (type 'signup')
+    // Si non supporté dans ta version, cela renverra une erreur.
+    // @ts-ignore
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: process.env.EXPO_PUBLIC_SUPABASE_REDIRECT_URL,
+      },
+    });
+    if (error) throw error;
+  }, []);
+
   // Google OAuth (Supabase PKCE flow)
   const signInWithGoogle = useCallback(async () => {
     if (!supabase) throw new Error("OAuth indisponible en mode local");
@@ -166,6 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider
       value={{
         user,
+        profile,
         loading,
         signIn,
         signUp,
@@ -173,6 +228,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resetPassword,
         signInWithGoogle,
         signInWithApple,
+        refreshProfile,
+        refreshEmailConfirmation,
+        resendConfirmationEmail,
       }}
     >
       {children}

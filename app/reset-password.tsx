@@ -46,7 +46,7 @@ export default function ResetPasswordScreen() {
       <Text
         style={{ fontSize: 26, fontWeight: "700", color: theme.colors.text }}
       >
-        Réinitialiser
+        Quand a pas de tête...
       </Text>
       {done ? (
         <Text style={{ color: theme.colors.text }}>
