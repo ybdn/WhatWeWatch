@@ -12,7 +12,13 @@ import React, {
 import { mapAuthError } from "../lib/errorMapping";
 import { passwordScore } from "../lib/password";
 import { fetchProfile, Profile } from "../lib/profileService";
-import { supabase } from "../lib/supabase";
+import { supabase as staticSupabase } from "../lib/supabase";
+
+// Helper pour récupérer le client supabase ou un mock injecté dans global pour les tests.
+function getClient() {
+  // @ts-ignore
+  return staticSupabase || (global as any).supabase || null;
+}
 
 export interface AuthUser {
   id: string;
@@ -54,8 +60,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Initialize
   useEffect(() => {
     const init = async () => {
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
+      const client = getClient();
+      if (client) {
+        const { data } = await client.auth.getSession();
         if (data.session?.user) {
           setUser({
             id: data.session.user.id,
@@ -67,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } catch {}
         }
         // Listen auth changes
-        supabase.auth.onAuthStateChange(
+        client.auth.onAuthStateChange(
           async (_: AuthChangeEvent, session: Session | null) => {
             if (session?.user) {
               setUser({
@@ -101,8 +108,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
-      if (supabase) {
-        const { error, data } = await supabase.auth.signInWithPassword({
+      const client = getClient();
+      if (client) {
+        const { error, data } = await client.auth.signInWithPassword({
           email,
           password,
         });
@@ -114,7 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             code === "mfa_required"
           ) {
             // Lister factors pour récupérer un facteur TOTP à challenger
-            const factors = await supabase.auth.mfa.listFactors();
+            const factors = await client.auth.mfa.listFactors();
             const totp = factors.data?.totp?.[0];
             if (totp) {
               setMfaPending({ factorId: totp.id, email });
@@ -150,9 +158,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       );
     }
     try {
-      if (supabase) {
+      const client = getClient();
+      if (client) {
         const redirectTo = makeRedirectUri({ scheme: "whatwewatch" });
-        const { error, data } = await supabase.auth.signUp({
+        const { error, data } = await client.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: redirectTo },
@@ -176,8 +185,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = useCallback(async () => {
-    if (supabase) {
-      const { error } = await supabase.auth.signOut();
+    const client = getClient();
+    if (client) {
+      const { error } = await client.auth.signOut();
       if (error) throw error;
     }
     setUser(null);
@@ -186,8 +196,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = useCallback(async (email: string) => {
     if (!email) throw new Error("Email requis");
-    if (supabase) {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const client = getClient();
+    if (client) {
+      const { error } = await client.auth.resetPasswordForEmail(email, {
         redirectTo: process.env.EXPO_PUBLIC_SUPABASE_REDIRECT_URL,
       });
       if (error) throw error;
@@ -198,14 +209,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user && supabase) {
+    const client = getClient();
+    if (user && client) {
       setProfile(await fetchProfile(user.id));
     }
   }, [user]);
 
   const refreshEmailConfirmation = useCallback(async () => {
-    if (!supabase) return;
-    const { data } = await supabase.auth.getUser();
+    const client = getClient();
+    if (!client) return;
+    const { data } = await client.auth.getUser();
     if (data.user) {
       setUser((prev) =>
         prev
@@ -223,12 +236,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const resendConfirmationEmail = useCallback(async (email: string) => {
-    if (!supabase) throw new Error("Non disponible en local");
+    const client = getClient();
+    if (!client) throw new Error("Non disponible en local");
     if (!email) throw new Error("Email requis");
     // Supabase v2: auth.resend (type 'signup')
     // Si non supporté dans ta version, cela renverra une erreur.
     // @ts-ignore
-    const { error } = await supabase.auth.resend({
+    const { error } = await client.auth.resend({
       type: "signup",
       email,
       options: {
@@ -239,8 +253,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const changeEmail = useCallback(async (newEmail: string) => {
-    if (!supabase) throw new Error("Non disponible en local");
-    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    const client = getClient();
+    if (!client) throw new Error("Non disponible en local");
+    const { error } = await client.auth.updateUser({ email: newEmail });
     if (error) throw new Error(mapAuthError(error));
   }, []);
 
@@ -252,9 +267,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Google OAuth (Supabase PKCE flow)
   const signInWithGoogle = useCallback(async () => {
-    if (!supabase) throw new Error("OAuth indisponible en mode local");
+    const client = getClient();
+    if (!client) throw new Error("OAuth indisponible en mode local");
     const redirectTo = makeRedirectUri({ scheme: "whatwewatch" });
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await client.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
     });
@@ -264,9 +280,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Apple Sign In
   const signInWithApple = useCallback(async () => {
-    if (!supabase) throw new Error("OAuth indisponible en mode local");
+    const client = getClient();
+    if (!client) throw new Error("OAuth indisponible en mode local");
     const redirectTo = makeRedirectUri({ scheme: "whatwewatch" });
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await client.auth.signInWithOAuth({
       provider: "apple",
       options: { redirectTo },
     });

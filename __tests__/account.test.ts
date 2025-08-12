@@ -2,12 +2,9 @@ import { deleteCurrentAccount } from "../lib/accountService";
 
 describe("accountService", () => {
   const originalFetch = global.fetch;
-  const originalEnv = process.env;
+  const originalEnvVal = process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
   beforeEach(() => {
-    process.env = {
-      ...originalEnv,
-      EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL: "https://func.test",
-    } as any;
+    process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL = "https://func.test";
     // @ts-ignore supabase minimal mock
     const mockGetUser = jest
       .fn()
@@ -22,17 +19,19 @@ describe("accountService", () => {
   });
   afterEach(() => {
     global.fetch = originalFetch;
-    process.env = originalEnv;
+    if (originalEnvVal === undefined) {
+      delete process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
+    } else {
+      process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL = originalEnvVal;
+    }
   });
 
   it("deleteCurrentAccount succès", async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        text: () => Promise.resolve(""),
-        json: () => Promise.resolve({}),
-      });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () => Promise.resolve({}),
+    });
     await expect(deleteCurrentAccount()).resolves.toBe(true);
   });
 
