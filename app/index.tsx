@@ -22,7 +22,7 @@ export default function Index() {
           color: theme.colors.text,
         }}
       >
-        WhatWeWatch arrive bientôt ! 🔥
+        On arrive bientôt ! 🔥
       </Text>
     </View>
   );
