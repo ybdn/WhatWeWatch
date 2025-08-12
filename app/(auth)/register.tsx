@@ -14,7 +14,7 @@ import { PasswordStrengthBar } from "../../components/PasswordStrengthBar";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { tAuth } from "../../i18n/strings";
-import { passwordHints, passwordScore, emailRegex } from "../../lib/password";
+import { emailRegex, passwordHints, passwordScore } from "../../lib/password";
 import { getTheme } from "../../theme/colors";
 
 export default function RegisterScreen() {
@@ -43,14 +43,14 @@ export default function RegisterScreen() {
     setError(null);
     setPending(true);
     try {
-  if (!isEmailValid) throw new Error(tAuth("invalidEmail"));
+      if (!isEmailValid) throw new Error(tAuth("invalidEmail"));
       await signUp(emailNorm, password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  show(tAuth("registerSuccess"), "success");
+      show(tAuth("registerSuccess"), "success");
     } catch (e: any) {
-  setError(e.message || tAuth("registerErrorGeneric"));
+      setError(e.message || tAuth("registerErrorGeneric"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-  show(e.message || tAuth("registerErrorToast"), "error");
+      show(e.message || tAuth("registerErrorToast"), "error");
     } finally {
       setPending(false);
     }
