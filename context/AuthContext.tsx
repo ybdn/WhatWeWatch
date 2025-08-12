@@ -9,6 +9,8 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { mapAuthError } from "../lib/errorMapping";
+import { passwordScore } from "../lib/password";
 import { fetchProfile, Profile } from "../lib/profileService";
 import { supabase } from "../lib/supabase";
 
@@ -31,6 +33,8 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   refreshEmailConfirmation: () => Promise<void>;
   resendConfirmationEmail: (email: string) => Promise<void>;
+  changeEmail: (newEmail: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -91,42 +95,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (supabase) {
-      const { error, data } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
-      if (data.user)
-        setUser({
-          id: data.user.id,
-          email: data.user.email ?? null,
-          emailConfirmed: !!data.user.email_confirmed_at,
+    try {
+      if (supabase) {
+        const { error, data } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
-    } else {
-      // Dev fallback: accept any password length >=3
-      if (password.length < 3) throw new Error("Mot de passe trop court");
-      const fake: AuthUser = { id: "local-" + email, email };
-      setUser(fake);
-      await persistLocalUser(fake);
+        if (error) throw error;
+        if (data.user)
+          setUser({
+            id: data.user.id,
+            email: data.user.email ?? null,
+            emailConfirmed: !!data.user.email_confirmed_at,
+          });
+      } else {
+        if (password.length < 3) throw new Error("Mot de passe trop court");
+        const fake: AuthUser = { id: "local-" + email, email };
+        setUser(fake);
+        await persistLocalUser(fake);
+      }
+    } catch (e: any) {
+      throw new Error(mapAuthError(e));
     }
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    if (supabase) {
-      const { error, data } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      if (data.user)
-        setUser({
-          id: data.user.id,
-          email: data.user.email ?? null,
-          emailConfirmed: !!data.user.email_confirmed_at,
+    const score = passwordScore(password);
+    if (score < 2) {
+      throw new Error(
+        "Mot de passe trop faible (min 8 caractères + chiffres et lettres)"
+      );
+    }
+    try {
+      if (supabase) {
+        const redirectTo = makeRedirectUri({ scheme: "whatwewatch" });
+        const { error, data } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: redirectTo },
         });
-    } else {
-      if (password.length < 6) throw new Error("Mot de passe trop court");
-      const fake: AuthUser = { id: "local-" + email, email };
-      setUser(fake);
-      await persistLocalUser(fake);
+        if (error) throw error;
+        if (data.user)
+          setUser({
+            id: data.user.id,
+            email: data.user.email ?? null,
+            emailConfirmed: !!data.user.email_confirmed_at,
+          });
+      } else {
+        if (password.length < 6) throw new Error("Mot de passe trop court");
+        const fake: AuthUser = { id: "local-" + email, email };
+        setUser(fake);
+        await persistLocalUser(fake);
+      }
+    } catch (e: any) {
+      throw new Error(mapAuthError(e));
     }
   }, []);
 
@@ -193,6 +215,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error) throw error;
   }, []);
 
+  const changeEmail = useCallback(async (newEmail: string) => {
+    if (!supabase) throw new Error("Non disponible en local");
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    if (error) throw new Error(mapAuthError(error));
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    throw new Error(
+      "Suppression de compte: implémente une edge function sécurisée (service role)."
+    );
+  }, []);
+
   // Google OAuth (Supabase PKCE flow)
   const signInWithGoogle = useCallback(async () => {
     if (!supabase) throw new Error("OAuth indisponible en mode local");
@@ -231,6 +265,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         refreshProfile,
         refreshEmailConfirmation,
         resendConfirmationEmail,
+        changeEmail,
+        deleteAccount,
       }}
     >
       {children}

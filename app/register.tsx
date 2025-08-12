@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Link, Redirect } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { passwordHints, passwordScore } from "../lib/password";
 import { getTheme } from "../theme/colors";
 
 export default function RegisterScreen() {
@@ -23,6 +24,8 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const score = useMemo(() => passwordScore(password), [password]);
+  const hints = useMemo(() => passwordHints(password), [password]);
 
   if (!loading && user) {
     return <Redirect href="/(tabs)" />;
@@ -95,6 +98,18 @@ export default function RegisterScreen() {
         onChangeText={setPassword}
         placeholderTextColor={theme.colors.tabBarInactive}
       />
+      {password.length > 0 && (
+        <View style={{ gap: 4 }}>
+          <Text style={{ color: theme.colors.text, fontSize: 12 }}>
+            Sécurité: {score}/4
+          </Text>
+          {hints.length > 0 && (
+            <Text style={{ color: "orange", fontSize: 11 }}>
+              Manque: {hints.join(", ")}
+            </Text>
+          )}
+        </View>
+      )}
       {error && <Text style={{ color: "red" }}>{error}</Text>}
       {!pending && !error && password && email && !isEmailValid && (
         <Text style={{ color: "orange", fontSize: 12 }}>
@@ -107,7 +122,7 @@ export default function RegisterScreen() {
         <Button
           title="Créer le compte"
           onPress={handleRegister}
-          disabled={!email || password.length < 6 || !isEmailValid}
+          disabled={!email || score < 2 || !isEmailValid}
         />
       )}
       <View

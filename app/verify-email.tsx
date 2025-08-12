@@ -7,6 +7,7 @@ export default function VerifyEmailScreen() {
   const { user, refreshEmailConfirmation, resendConfirmationEmail } = useAuth();
   const [checking, setChecking] = useState(false);
   const [sending, setSending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const router = useRouter();
 
   const checkNow = async () => {
@@ -21,17 +22,25 @@ export default function VerifyEmailScreen() {
   };
 
   const resend = async () => {
+    if (cooldown > 0) return;
     if (!user?.email) return;
     try {
       setSending(true);
       await resendConfirmationEmail(user.email);
       Alert.alert("Email envoyé", "Vérifie ta boîte de réception.");
+      setCooldown(45);
     } catch (e: any) {
       Alert.alert("Erreur", e.message);
     } finally {
       setSending(false);
     }
   };
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   useEffect(() => {
     if (user?.emailConfirmed) {
@@ -49,9 +58,15 @@ export default function VerifyEmailScreen() {
         lien pour activer ton compte.
       </Text>
       <Button
-        title={sending ? "Envoi..." : "Renvoyer l'email"}
+        title={
+          sending
+            ? "Envoi..."
+            : cooldown > 0
+            ? `Renvoyer (${cooldown}s)`
+            : "Renvoyer l'email"
+        }
         onPress={resend}
-        disabled={sending}
+        disabled={sending || cooldown > 0}
       />
       <Button
         title={checking ? "Vérification..." : "J'ai confirmé"}

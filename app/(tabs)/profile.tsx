@@ -1,4 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
+
+import * as ImageManipulator from "expo-image-manipulator";
 import { Link } from "expo-router";
 import {
   Alert,
@@ -35,9 +37,20 @@ export default function ProfileScreen() {
     });
     if (res.canceled) return;
     const asset = res.assets[0];
-    // Chemin deterministe dans le bucket: <userId>/avatar.jpg
+    if (!asset.fileSize) {
+      // certains environnements ne fournissent pas fileSize; on continue
+    } else if (asset.fileSize > 2 * 1024 * 1024) {
+      Alert.alert("Image trop lourde (max 2MB)");
+      return;
+    }
+    // Compression
+    const manipulated = await ImageManipulator.manipulateAsync(
+      asset.uri,
+      [{ resize: { width: 512, height: 512 } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+    );
     const filePath = `${user.id}/avatar.jpg`;
-    const file = await fetch(asset.uri).then((r) => r.blob());
+    const file = await fetch(manipulated.uri).then((r) => r.blob());
     const { error: uploadError } = await supabase.storage
       .from("public")
       .upload(filePath, file, { upsert: true, contentType: "image/jpeg" });
