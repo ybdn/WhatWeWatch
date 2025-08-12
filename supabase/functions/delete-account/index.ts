@@ -1,29 +1,134 @@
+// Import JOSE (Deno remote). Tooling local peut signaler une erreur de résolution; exécution Deno OK.
+// @ts-ignore URL Deno
+import {
+  createLocalJWKSet,
+  createRemoteJWKSet,
+  JWK,
+  jwtVerify,
+} from "https://deno.land/x/jose@v4.14.4/index.ts";
+
 // Edge Function (Deno) pour supprimer un compte utilisateur
 // Déploiement : `supabase functions deploy delete-account --no-verify-jwt`
-// (Activer ensuite la vérification JWT si nécessaire.)
-// Utilise maintenant l'API native Deno.serve (pas besoin d'import std/http)
-// ATTENTION: nécessite la service role key; ajouter une vérification JWT stricte avant prod.
+// (Puis activer la vérification JWT côté plateforme si souhaité.)
+// Vérification JWT cryptographique (signature + iss + aud) ajoutée avec jose.
+// ATTENTION: nécessite la service role key; protéger cet endpoint (ne pas laisser --no-verify-jwt en prod).
 
 // Déclaration minimale si l'éditeur local n'a pas les types Deno (retirez si IDE gère Deno).
+// --- Vérification JWT (iss + aud) ---
+
 declare const Deno: any;
 
-interface JwtPayload {
-  sub?: string;
-  [k: string]: any;
-}
+// --- Sécurité JWT avancée: timeout, fallback, revocation, audiences multiples ---
+const JWKS_TIMEOUT_MS = 2000;
+const CLOCK_SKEW_SEC = 30;
+const ALLOWED_AUDIENCES = ["authenticated"]; // étendre si nécessaire
+const ENABLE_REVOCATION_CHECK = true;
 
-function extractUserId(authHeader: string): string | null {
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.substring(7);
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
+let remoteJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+let localJwks: ReturnType<typeof createLocalJWKSet> | null = null;
+
+async function fetchJwksWithTimeout(supabaseUrl: string) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), JWKS_TIMEOUT_MS);
   try {
-    const payload = JSON.parse(atob(parts[1])) as JwtPayload;
-    return payload.sub || null;
-  } catch {
-    return null;
+    const resp = await fetch(`${supabaseUrl}/auth/v1/keys`, {
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`JWKS status ${resp.status}`);
+    const json = await resp.json();
+    if (!json.keys) throw new Error("Format JWKS invalide");
+    return json;
+  } finally {
+    clearTimeout(id);
   }
 }
+
+async function ensureJwks(supabaseUrl: string) {
+  if (!remoteJwks)
+    remoteJwks = createRemoteJWKSet(new URL(`${supabaseUrl}/auth/v1/keys`));
+  if (!localJwks) {
+    try {
+      const jwksJson = await fetchJwksWithTimeout(supabaseUrl);
+      localJwks = createLocalJWKSet(jwksJson as { keys: JWK[] });
+    } catch {
+      // fallback silencieux: on utilisera remoteJwks
+    }
+  }
+}
+
+async function verifyAccessToken(
+  token: string,
+  supabaseUrl: string,
+  serviceRoleKey: string
+) {
+  await ensureJwks(supabaseUrl);
+  const expectedIssuer = `${supabaseUrl}/auth/v1`;
+  let payload: any;
+  const verifiers = [localJwks, remoteJwks].filter(Boolean) as ReturnType<
+    typeof createRemoteJWKSet
+  >[];
+  let lastErr: Error | null = null;
+  for (const v of verifiers) {
+    try {
+      const r = await jwtVerify(token, v, { issuer: expectedIssuer });
+      payload = r.payload;
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e as Error;
+    }
+  }
+  if (!payload) {
+    if (lastErr?.name === "AbortError")
+      throw Object.assign(new Error("jwks_unreachable"), { status: 503 });
+    throw Object.assign(new Error("jwt_verify_failed"), {
+      status: 401,
+      details: lastErr?.message,
+    });
+  }
+  // Audience
+  const aud = payload.aud;
+  if (ALLOWED_AUDIENCES.length) {
+    const ok = Array.isArray(aud)
+      ? aud.some((a) => ALLOWED_AUDIENCES.includes(a))
+      : ALLOWED_AUDIENCES.includes(aud as string);
+    if (!ok)
+      throw Object.assign(new Error("audience_forbidden"), { status: 401 });
+  }
+  // Revocation (iat >= updated_at - skew)
+  if (ENABLE_REVOCATION_CHECK && payload.sub) {
+    try {
+      const userResp = await fetch(
+        `${supabaseUrl}/auth/v1/admin/users/${payload.sub}`,
+        {
+          headers: {
+            Authorization: `Bearer ${serviceRoleKey}`,
+            apikey: serviceRoleKey,
+          },
+        }
+      );
+      if (userResp.ok) {
+        const userJson = await userResp.json();
+        const updatedAt = Date.parse(
+          userJson?.user?.updated_at || userJson?.updated_at || ""
+        );
+        if (updatedAt && payload.iat) {
+          const updatedSec = Math.floor(updatedAt / 1000) - CLOCK_SKEW_SEC;
+          if ((payload.iat as number) < updatedSec)
+            throw Object.assign(new Error("token_revoked"), { status: 401 });
+        }
+      }
+    } catch (e) {
+      if ((e as any)?.status === 401) throw e; // revocation détectée
+      // sinon soft fail
+    }
+  }
+  return payload;
+}
+
+// (Interface JwtPayload supprimée: non utilisée depuis vérification cryptographique.)
+
+// Ancienne extraction (décodage base64) supprimée au profit de la vérification ci-dessus.
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
@@ -33,10 +138,9 @@ Deno.serve(async (req: Request) => {
   }
   try {
     const authHeader = req.headers.get("authorization") || "";
-    const userId = extractUserId(authHeader);
-    if (!userId) {
+    if (!authHeader.startsWith("Bearer ")) {
       return new Response(
-        JSON.stringify({ error: "JWT utilisateur invalide" }),
+        JSON.stringify({ error: "Authorization manquante" }),
         { status: 401 }
       );
     }
@@ -48,6 +152,35 @@ Deno.serve(async (req: Request) => {
         status: 500,
       });
     }
+
+    let userId: string | null = null;
+    try {
+      const token = authHeader.substring(7);
+      const payload = await verifyAccessToken(
+        token,
+        SUPABASE_URL,
+        SERVICE_ROLE_KEY
+      );
+      userId = (payload.sub as string) || null;
+    } catch (e) {
+      const status = (e as any)?.status || 401;
+      const code = (e as Error).message;
+      if (code === "jwks_unreachable") {
+        return new Response(JSON.stringify({ error: code }), { status });
+      }
+      return new Response(
+        JSON.stringify({
+          error: "JWT invalide",
+          code,
+          details: (e as any)?.details || undefined,
+        }),
+        { status }
+      );
+    }
+    if (!userId)
+      return new Response(JSON.stringify({ error: "sub manquant" }), {
+        status: 401,
+      });
 
     // Lister fichiers avatar sous public/<userId>/
     const listResp = await fetch(

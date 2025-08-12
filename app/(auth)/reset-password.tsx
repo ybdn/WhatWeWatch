@@ -1,14 +1,8 @@
 import { Link } from "expo-router";
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Button,
-  Text,
-  TextInput,
-  useColorScheme,
-  View,
-} from "react-native";
+import { Button, Text, TextInput, useColorScheme, View } from "react-native";
 import { useAuth } from "../../context/AuthContext";
+import { tAuth } from "../../i18n/strings";
 import { getTheme } from "../../theme/colors";
 
 export default function ResetPasswordScreen() {
@@ -46,19 +40,23 @@ export default function ResetPasswordScreen() {
       <Text
         style={{ fontSize: 26, fontWeight: "700", color: theme.colors.text }}
       >
-        Quand a pas de tête...
+        {tAuth("forgotPassword")}
       </Text>
       {done ? (
         <Text style={{ color: theme.colors.text }}>
-          Si l&apos;email existe, un lien de réinitialisation a été envoyé.{" "}
-          <Link href="/(auth)/login">Retour connexion</Link>
+          {tAuth("resetDone")}{" "}
+          <Link href="/(auth)/login">{tAuth("returnLogin")}</Link>
         </Text>
       ) : (
         <>
           <TextInput
-            placeholder="Email"
+            placeholder={tAuth("emailPlaceholder")}
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="username"
             keyboardType="email-address"
+            returnKeyType="send"
+            onSubmitEditing={handle}
             style={{
               borderWidth: 1,
               borderColor: theme.colors.cardBorder,
@@ -71,17 +69,13 @@ export default function ResetPasswordScreen() {
             placeholderTextColor={theme.colors.tabBarInactive}
           />
           {error && <Text style={{ color: "red" }}>{error}</Text>}
-          {pending ? (
-            <ActivityIndicator />
-          ) : (
-            <Button
-              title="Envoyer le lien"
-              onPress={handle}
-              disabled={!email}
-            />
-          )}
+          <Button
+            title={pending ? tAuth("sendLinkPending") : tAuth("sendLink")}
+            onPress={handle}
+            disabled={pending || !email}
+          />
           <Text style={{ color: theme.colors.text, textAlign: "center" }}>
-            <Link href="/(auth)/login">Annuler</Link>
+            <Link href="/(auth)/login">{tAuth("cancel")}</Link>
           </Text>
         </>
       )}

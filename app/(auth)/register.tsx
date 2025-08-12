@@ -1,8 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Link, Redirect } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Button,
   Text,
   TextInput,
@@ -10,10 +9,12 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { PasswordField } from "../../components/PasswordField";
 import { PasswordStrengthBar } from "../../components/PasswordStrengthBar";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
-import { passwordHints, passwordScore } from "../../lib/password";
+import { tAuth } from "../../i18n/strings";
+import { passwordHints, passwordScore, emailRegex } from "../../lib/password";
 import { getTheme } from "../../theme/colors";
 
 export default function RegisterScreen() {
@@ -26,6 +27,8 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // showPassword remplacé via PasswordField interne
+  const passwordRef = useRef<TextInput | null>(null);
   const score = useMemo(() => passwordScore(password), [password]);
   const hints = useMemo(() => passwordHints(password), [password]);
 
@@ -34,20 +37,20 @@ export default function RegisterScreen() {
   }
 
   const emailNorm = email.trim().toLowerCase();
-  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm);
+  const isEmailValid = emailRegex.test(emailNorm);
 
   const handleRegister = async () => {
     setError(null);
     setPending(true);
     try {
-      if (!isEmailValid) throw new Error("Email invalide");
+  if (!isEmailValid) throw new Error(tAuth("invalidEmail"));
       await signUp(emailNorm, password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      show("Compte créé. Vérifie ton email.", "success");
+  show(tAuth("registerSuccess"), "success");
     } catch (e: any) {
-      setError(e.message || "Erreur d'inscription");
+  setError(e.message || tAuth("registerErrorGeneric"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      show(e.message || "Erreur inscription", "error");
+  show(e.message || tAuth("registerErrorToast"), "error");
     } finally {
       setPending(false);
     }
@@ -71,11 +74,15 @@ export default function RegisterScreen() {
           marginBottom: 8,
         }}
       >
-        Inscription
+        {tAuth("registerTitle")}
       </Text>
       <TextInput
-        placeholder="Email"
+        placeholder={tAuth("emailPlaceholder")}
         autoCapitalize="none"
+        autoComplete="email"
+        textContentType="username"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
         keyboardType="email-address"
         style={{
           borderWidth: 1,
@@ -88,19 +95,14 @@ export default function RegisterScreen() {
         onChangeText={setEmail}
         placeholderTextColor={theme.colors.tabBarInactive}
       />
-      <TextInput
-        placeholder="Mot de passe (6+ caractères)"
-        secureTextEntry
-        style={{
-          borderWidth: 1,
-          borderColor: theme.colors.cardBorder,
-          padding: 12,
-          borderRadius: 8,
-          color: theme.colors.text,
-        }}
+      <PasswordField
+        ref={passwordRef as any}
         value={password}
         onChangeText={setPassword}
-        placeholderTextColor={theme.colors.tabBarInactive}
+        returnKeyType="done"
+        onSubmitEditing={handleRegister}
+        disabled={pending}
+        registerVariant
       />
       {password.length > 0 && (
         <View style={{ gap: 4 }}>
@@ -115,18 +117,16 @@ export default function RegisterScreen() {
       {error && <Text style={{ color: "red" }}>{error}</Text>}
       {!pending && !error && password && email && !isEmailValid && (
         <Text style={{ color: "orange", fontSize: 12 }}>
-          Format email invalide
+          {tAuth("invalidEmailFormat")}
         </Text>
       )}
-      {pending ? (
-        <ActivityIndicator />
-      ) : (
-        <Button
-          title="Créer le compte"
-          onPress={handleRegister}
-          disabled={!email || score < 2 || !isEmailValid}
-        />
-      )}
+      <Button
+        title={
+          pending ? tAuth("registerButtonPending") : tAuth("registerButton")
+        }
+        onPress={handleRegister}
+        disabled={pending || !email || score < 2 || !isEmailValid}
+      />
       <View
         style={{
           flexDirection: "row",
@@ -147,7 +147,9 @@ export default function RegisterScreen() {
             borderWidth: 1,
             borderColor: theme.colors.cardBorder,
             flex: 1,
+            opacity: pending ? 0.5 : 1,
           }}
+          disabled={pending}
         >
           <Text
             style={{
@@ -171,7 +173,9 @@ export default function RegisterScreen() {
             borderWidth: 1,
             borderColor: theme.colors.cardBorder,
             flex: 1,
+            opacity: pending ? 0.5 : 1,
           }}
+          disabled={pending}
         >
           <Text
             style={{
@@ -185,7 +189,8 @@ export default function RegisterScreen() {
         </TouchableOpacity>
       </View>
       <Text style={{ color: theme.colors.text, textAlign: "center" }}>
-        Déjà un compte ? <Link href="/(auth)/login">Connexion</Link>
+        {tAuth("haveAccount")}{" "}
+        <Link href="/(auth)/login">{tAuth("signin")}</Link>
       </Text>
     </View>
   );

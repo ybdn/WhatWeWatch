@@ -22,3 +22,6 @@ export function passwordHints(pw: string): string[] {
   if (!/[^A-Za-z0-9]/.test(pw)) hints.push("Un symbole");
   return hints;
 }
+
+// Email regex simple (exporté pour tests unitaires)
+export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
