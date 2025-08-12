@@ -1,10 +1,13 @@
+import * as Haptics from "expo-haptics";
 import { Link, Redirect } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Button,
   Text,
   TextInput,
+  TouchableOpacity,
   useColorScheme,
   View,
 } from "react-native";
@@ -14,7 +17,8 @@ import { getTheme } from "../theme/colors";
 export default function LoginScreen() {
   const scheme = useColorScheme();
   const theme = getTheme(scheme);
-  const { signIn, user, loading } = useAuth();
+  const { signIn, user, loading, signInWithGoogle, signInWithApple } =
+    useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,13 +28,19 @@ export default function LoginScreen() {
     return <Redirect href="/(tabs)" />;
   }
 
+  const emailNorm = email.trim().toLowerCase();
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm);
+
   const handleLogin = async () => {
     setError(null);
     setPending(true);
     try {
-      await signIn(email.trim(), password);
+      if (!isEmailValid) throw new Error("Email invalide");
+      await signIn(emailNorm, password);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       setError(e.message || "Erreur de connexion");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setPending(false);
     }
@@ -86,18 +96,77 @@ export default function LoginScreen() {
         placeholderTextColor={theme.colors.tabBarInactive}
       />
       {error && <Text style={{ color: "red" }}>{error}</Text>}
+      {!pending && !error && password && email && !isEmailValid && (
+        <Text style={{ color: "orange", fontSize: 12 }}>
+          Format email invalide
+        </Text>
+      )}
       {pending ? (
         <ActivityIndicator />
       ) : (
         <Button
           title="Se connecter"
           onPress={handleLogin}
-          disabled={!email || !password}
+          disabled={!email || !password || !isEmailValid}
         />
       )}
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 12,
+          justifyContent: "center",
+          marginTop: 8,
+        }}
+      >
+        <TouchableOpacity
+          onPress={() =>
+            signInWithGoogle().catch((e) => Alert.alert("Google", e.message))
+          }
+          style={{
+            padding: 12,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: theme.colors.cardBorder,
+            flex: 1,
+          }}
+        >
+          <Text
+            style={{
+              textAlign: "center",
+              color: theme.colors.text,
+              fontWeight: "600",
+            }}
+          >
+            Google
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            signInWithApple().catch((e) => Alert.alert("Apple", e.message))
+          }
+          style={{
+            padding: 12,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: theme.colors.cardBorder,
+            flex: 1,
+          }}
+        >
+          <Text
+            style={{
+              textAlign: "center",
+              color: theme.colors.text,
+              fontWeight: "600",
+            }}
+          >
+            Apple
+          </Text>
+        </TouchableOpacity>
+      </View>
       <Text style={{ color: theme.colors.text, textAlign: "center" }}>
-  Mot de passe oublié ? <Link href="/reset-password">Réinitialiser</Link>{"\n"}
-  Pas de compte ? <Link href="/register">Inscription</Link>
+        Mot de passe oublié ? <Link href="/reset-password">Réinitialiser</Link>
+        {"\n"}
+        Pas de compte ? <Link href="/register">Inscription</Link>
       </Text>
     </View>
   );

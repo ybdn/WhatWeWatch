@@ -1,10 +1,13 @@
+import * as Haptics from "expo-haptics";
 import { Link, Redirect } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Button,
   Text,
   TextInput,
+  TouchableOpacity,
   useColorScheme,
   View,
 } from "react-native";
@@ -14,7 +17,8 @@ import { getTheme } from "../theme/colors";
 export default function RegisterScreen() {
   const scheme = useColorScheme();
   const theme = getTheme(scheme);
-  const { signUp, user, loading } = useAuth();
+  const { signUp, user, loading, signInWithGoogle, signInWithApple } =
+    useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,13 +28,19 @@ export default function RegisterScreen() {
     return <Redirect href="/(tabs)" />;
   }
 
+  const emailNorm = email.trim().toLowerCase();
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm);
+
   const handleRegister = async () => {
     setError(null);
     setPending(true);
     try {
-      await signUp(email.trim(), password);
+      if (!isEmailValid) throw new Error("Email invalide");
+      await signUp(emailNorm, password);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       setError(e.message || "Erreur d'inscription");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setPending(false);
     }
@@ -86,15 +96,73 @@ export default function RegisterScreen() {
         placeholderTextColor={theme.colors.tabBarInactive}
       />
       {error && <Text style={{ color: "red" }}>{error}</Text>}
+      {!pending && !error && password && email && !isEmailValid && (
+        <Text style={{ color: "orange", fontSize: 12 }}>
+          Format email invalide
+        </Text>
+      )}
       {pending ? (
         <ActivityIndicator />
       ) : (
         <Button
           title="Créer le compte"
           onPress={handleRegister}
-          disabled={!email || password.length < 6}
+          disabled={!email || password.length < 6 || !isEmailValid}
         />
       )}
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 12,
+          justifyContent: "center",
+          marginTop: 8,
+        }}
+      >
+        <TouchableOpacity
+          onPress={() =>
+            signInWithGoogle().catch((e) => Alert.alert("Google", e.message))
+          }
+          style={{
+            padding: 12,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: theme.colors.cardBorder,
+            flex: 1,
+          }}
+        >
+          <Text
+            style={{
+              textAlign: "center",
+              color: theme.colors.text,
+              fontWeight: "600",
+            }}
+          >
+            Google
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            signInWithApple().catch((e) => Alert.alert("Apple", e.message))
+          }
+          style={{
+            padding: 12,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: theme.colors.cardBorder,
+            flex: 1,
+          }}
+        >
+          <Text
+            style={{
+              textAlign: "center",
+              color: theme.colors.text,
+              fontWeight: "600",
+            }}
+          >
+            Apple
+          </Text>
+        </TouchableOpacity>
+      </View>
       <Text style={{ color: theme.colors.text, textAlign: "center" }}>
         Déjà un compte ? <Link href="/login">Connexion</Link>
       </Text>
