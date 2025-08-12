@@ -25,6 +25,7 @@ interface AuthContextType {
   profile?: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  mfaPending?: { factorId: string; email: string } | null;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -45,6 +46,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mfaPending, setMfaPending] = useState<{
+    factorId: string;
+    email: string;
+  } | null>(null);
 
   // Initialize
   useEffect(() => {
@@ -101,13 +106,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           email,
           password,
         });
-        if (error) throw error;
-        if (data.user)
+        if (error) {
+          // Supabase MFA: code d'erreur 'mfa_required' ou message contenant 'MFA'
+          const code = (error as any).status || (error as any).code || "";
+          if (
+            (error as any).error_description?.toLowerCase?.().includes("mfa") ||
+            code === "mfa_required"
+          ) {
+            // Lister factors pour récupérer un facteur TOTP à challenger
+            const factors = await supabase.auth.mfa.listFactors();
+            const totp = factors.data?.totp?.[0];
+            if (totp) {
+              setMfaPending({ factorId: totp.id, email });
+              return; // on ne lève pas d'erreur: on passera à l'écran challenge
+            }
+          }
+          throw error;
+        }
+        if (data.user) {
           setUser({
             id: data.user.id,
             email: data.user.email ?? null,
             emailConfirmed: !!data.user.email_confirmed_at,
           });
+          setMfaPending(null);
+        }
       } else {
         if (password.length < 3) throw new Error("Mot de passe trop court");
         const fake: AuthUser = { id: "local-" + email, email };
@@ -267,6 +290,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         resendConfirmationEmail,
         changeEmail,
         deleteAccount,
+        mfaPending,
       }}
     >
       {children}

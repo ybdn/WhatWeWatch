@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Link, Redirect } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -10,24 +10,20 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { PasswordStrengthBar } from "../components/PasswordStrengthBar";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-import { passwordHints, passwordScore } from "../lib/password";
-import { getTheme } from "../theme/colors";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { getTheme } from "../../theme/colors";
 
-export default function RegisterScreen() {
+export default function LoginScreen() {
   const scheme = useColorScheme();
   const theme = getTheme(scheme);
-  const { signUp, user, loading, signInWithGoogle, signInWithApple } =
+  const { signIn, user, loading, signInWithGoogle, signInWithApple } =
     useAuth();
   const { show } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const score = useMemo(() => passwordScore(password), [password]);
-  const hints = useMemo(() => passwordHints(password), [password]);
 
   if (!loading && user) {
     return <Redirect href="/(tabs)" />;
@@ -36,18 +32,18 @@ export default function RegisterScreen() {
   const emailNorm = email.trim().toLowerCase();
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm);
 
-  const handleRegister = async () => {
+  const handleLogin = async () => {
     setError(null);
     setPending(true);
     try {
       if (!isEmailValid) throw new Error("Email invalide");
-      await signUp(emailNorm, password);
+      await signIn(emailNorm, password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      show("Compte créé. Vérifie ton email.", "success");
+      show("Connexion réussie", "success");
     } catch (e: any) {
-      setError(e.message || "Erreur d'inscription");
+      setError(e.message || "Erreur de connexion");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      show(e.message || "Erreur inscription", "error");
+      show(e.message || "Erreur de connexion", "error");
     } finally {
       setPending(false);
     }
@@ -71,7 +67,7 @@ export default function RegisterScreen() {
           marginBottom: 8,
         }}
       >
-        Inscription
+        Connexion
       </Text>
       <TextInput
         placeholder="Email"
@@ -89,7 +85,7 @@ export default function RegisterScreen() {
         placeholderTextColor={theme.colors.tabBarInactive}
       />
       <TextInput
-        placeholder="Mot de passe (6+ caractères)"
+        placeholder="Mot de passe"
         secureTextEntry
         style={{
           borderWidth: 1,
@@ -102,16 +98,6 @@ export default function RegisterScreen() {
         onChangeText={setPassword}
         placeholderTextColor={theme.colors.tabBarInactive}
       />
-      {password.length > 0 && (
-        <View style={{ gap: 4 }}>
-          <PasswordStrengthBar password={password} />
-          {hints.length > 0 && (
-            <Text style={{ color: "orange", fontSize: 11 }}>
-              Manque: {hints.join(", ")}
-            </Text>
-          )}
-        </View>
-      )}
       {error && <Text style={{ color: "red" }}>{error}</Text>}
       {!pending && !error && password && email && !isEmailValid && (
         <Text style={{ color: "orange", fontSize: 12 }}>
@@ -122,9 +108,9 @@ export default function RegisterScreen() {
         <ActivityIndicator />
       ) : (
         <Button
-          title="Créer le compte"
-          onPress={handleRegister}
-          disabled={!email || score < 2 || !isEmailValid}
+          title="Se connecter"
+          onPress={handleLogin}
+          disabled={!email || !password || !isEmailValid}
         />
       )}
       <View
@@ -185,7 +171,10 @@ export default function RegisterScreen() {
         </TouchableOpacity>
       </View>
       <Text style={{ color: theme.colors.text, textAlign: "center" }}>
-        Déjà un compte ? <Link href="/login">Connexion</Link>
+        Mot de passe oublié ?{" "}
+        <Link href="/(auth)/reset-password">Réinitialiser</Link>
+        {"\n"}
+        Pas de compte ? <Link href="/(auth)/register">Inscription</Link>
       </Text>
     </View>
   );

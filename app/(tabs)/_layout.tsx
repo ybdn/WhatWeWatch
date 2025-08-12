@@ -10,7 +10,7 @@ export default function TabsLayout() {
   const { user, loading } = useAuth();
 
   if (!loading && !user) {
-    return <Redirect href="/login" />;
+    return <Redirect href="/(auth)/login" />;
   }
 
   return (

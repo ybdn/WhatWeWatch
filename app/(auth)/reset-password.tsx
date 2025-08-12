@@ -8,8 +8,8 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { useAuth } from "../context/AuthContext";
-import { getTheme } from "../theme/colors";
+import { useAuth } from "../../context/AuthContext";
+import { getTheme } from "../../theme/colors";
 
 export default function ResetPasswordScreen() {
   const scheme = useColorScheme();
@@ -51,7 +51,7 @@ export default function ResetPasswordScreen() {
       {done ? (
         <Text style={{ color: theme.colors.text }}>
           Si l&apos;email existe, un lien de réinitialisation a été envoyé.{" "}
-          <Link href="/login">Retour connexion</Link>
+          <Link href="/(auth)/login">Retour connexion</Link>
         </Text>
       ) : (
         <>
@@ -81,7 +81,7 @@ export default function ResetPasswordScreen() {
             />
           )}
           <Text style={{ color: theme.colors.text, textAlign: "center" }}>
-            <Link href="/login">Annuler</Link>
+            <Link href="/(auth)/login">Annuler</Link>
           </Text>
         </>
       )}

@@ -1,37 +1,42 @@
-import { Stack, usePathname, useRouter } from "expo-router";
+import { Stack, usePathname, useRouter, Href } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ToastProvider } from "../context/ToastContext";
 
-function Gate() {
-  const { loading, user, profile } = useAuth();
+export function Gate() {
+  const { loading, user, profile, mfaPending } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
   // Redirections d'onboarding selon l'état du compte
   if (!loading && user) {
+    // MFA challenge prioritaire si en attente
+    if (mfaPending && pathname !== "/mfa-challenge") {
+      router.replace("/mfa-challenge" as Href);
+      return null;
+    }
     // 1. Email non confirmé -> verify-email
     if (user.emailConfirmed === false) {
       const allowed = [
-        "/verify-email",
-        "/login",
-        "/register",
-        "/reset-password",
+        "/(onboarding)/verify-email",
+        "/(auth)/login",
+        "/(auth)/register",
+        "/(auth)/reset-password",
       ];
       if (!allowed.includes(pathname)) {
-        router.replace("/verify-email");
+        router.replace("/(onboarding)/verify-email");
       }
     } else if (profile && !profile.display_name) {
       // 2. Profil incomplet -> profile-completion
       const allowed = [
-        "/profile-completion",
-        "/login",
-        "/register",
-        "/reset-password",
-        "/verify-email",
+        "/(onboarding)/profile-completion",
+        "/(auth)/login",
+        "/(auth)/register",
+        "/(auth)/reset-password",
+        "/(onboarding)/verify-email",
       ];
       if (!allowed.includes(pathname)) {
-        router.replace("/profile-completion");
+        router.replace("/(onboarding)/profile-completion");
       }
     }
   }
@@ -45,13 +50,10 @@ function Gate() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="register" />
-      <Stack.Screen name="reset-password" />
-      <Stack.Screen name="profile-completion" />
-      <Stack.Screen name="verify-email" />
-      <Stack.Screen name="mfa-enable" />
-      <Stack.Screen name="mfa-manage" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(onboarding)" />
+      <Stack.Screen name="mfa" />
+      <Stack.Screen name="mfa-challenge" />
     </Stack>
   );
 }

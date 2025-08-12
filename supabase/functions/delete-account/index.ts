@@ -1,9 +1,10 @@
-// Edge Function (Deno) d'exemple pour supprimer un compte utilisateur
-// A déployer via `supabase functions deploy delete-account --no-verify-jwt` (puis activer JWT selon besoin)
-// ATTENTION: nécessite service role key côté exécution; protéger par auth (vérifier JWT) avant production.
+// Edge Function (Deno) pour supprimer un compte utilisateur
+// Déploiement : `supabase functions deploy delete-account --no-verify-jwt`
+// (Activer ensuite la vérification JWT si nécessaire.)
+// Utilise maintenant l'API native Deno.serve (pas besoin d'import std/http)
+// ATTENTION: nécessite la service role key; ajouter une vérification JWT stricte avant prod.
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-// @ts-ignore déclaration Deno pour type-check local RN
+// Déclaration minimale si l'éditeur local n'a pas les types Deno (retirez si IDE gère Deno).
 declare const Deno: any;
 
 interface JwtPayload {
@@ -24,7 +25,7 @@ function extractUserId(authHeader: string): string | null {
   }
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "POST requis" }), {
       status: 405,
@@ -79,6 +80,20 @@ serve(async (req: Request) => {
         });
       }
     }
+
+    // Audit log (table 'account_deletions' avec colonnes: user_id UUID, created_at timestamptz default now())
+    await fetch(`${SUPABASE_URL}/rest/v1/account_deletions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        apikey: SERVICE_ROLE_KEY,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ user_id: userId }),
+    }).catch(() => {
+      /* ignore log failure */
+    });
 
     // Suppression utilisateur (admin)
     const delUser = await fetch(

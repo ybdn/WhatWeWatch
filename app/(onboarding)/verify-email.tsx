@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Button, Text, View } from "react-native";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 
 export default function VerifyEmailScreen() {
   const { user, refreshEmailConfirmation, resendConfirmationEmail } = useAuth();

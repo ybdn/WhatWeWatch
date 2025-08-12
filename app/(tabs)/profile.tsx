@@ -6,6 +6,7 @@ import {
   Alert,
   Button,
   Image,
+  Platform,
   Text,
   TouchableOpacity,
   useColorScheme,
@@ -44,16 +45,35 @@ export default function ProfileScreen() {
       return;
     }
     // Compression
-    const manipulated = await ImageManipulator.manipulateAsync(
-      asset.uri,
-      [{ resize: { width: 512, height: 512 } }],
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-    );
-    const filePath = `${user.id}/avatar.jpg`;
+    let manipulated;
+    let formatExt = "jpg";
+    let contentType = "image/jpeg";
+    try {
+      if (Platform.OS === "android" || Platform.OS === "web") {
+        manipulated = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 512, height: 512 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.WEBP }
+        );
+        formatExt = "webp";
+        contentType = "image/webp";
+      } else {
+        throw new Error("Force JPEG");
+      }
+    } catch {
+      manipulated = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 512, height: 512 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      formatExt = "jpg";
+      contentType = "image/jpeg";
+    }
+    const filePath = `${user.id}/avatar.${formatExt}`;
     const file = await fetch(manipulated.uri).then((r) => r.blob());
     const { error: uploadError } = await supabase.storage
       .from("public")
-      .upload(filePath, file, { upsert: true, contentType: "image/jpeg" });
+      .upload(filePath, file, { upsert: true, contentType });
     if (uploadError) return show(uploadError.message, "error");
     const { data: publicUrlData } = supabase.storage
       .from("public")
@@ -103,17 +123,14 @@ export default function ProfileScreen() {
       </Text>
       {!profile?.display_name && (
         <Link
-          href="/profile-completion"
+          href="/(onboarding)/profile-completion"
           style={{ color: theme.colors.tabBarActive, fontWeight: "600" }}
         >
           Compléter mon profil
         </Link>
       )}
-      <Link href="/mfa-enable" style={{ color: theme.colors.tabBarActive }}>
-        Activer MFA
-      </Link>
-      <Link href="/mfa-manage" style={{ color: theme.colors.tabBarActive }}>
-        Gérer MFA
+      <Link href="/mfa" style={{ color: theme.colors.tabBarActive }}>
+        Sécurité MFA
       </Link>
       <Button title="Se déconnecter" onPress={signOut} />
       <View style={{ height: 12 }} />

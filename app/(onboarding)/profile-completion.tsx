@@ -1,9 +1,9 @@
 import { Redirect } from "expo-router";
 import React, { useState } from "react";
 import { Button, Text, TextInput, useColorScheme, View } from "react-native";
-import { useAuth } from "../context/AuthContext";
-import { upsertProfile } from "../lib/profileService";
-import { getTheme } from "../theme/colors";
+import { useAuth } from "../../context/AuthContext";
+import { upsertProfile } from "../../lib/profileService";
+import { getTheme } from "../../theme/colors";
 
 export default function ProfileCompletion() {
   const { user } = useAuth();
@@ -11,7 +11,7 @@ export default function ProfileCompletion() {
   const theme = getTheme(scheme);
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
-  if (!user) return <Redirect href="/login" />;
+  if (!user) return <Redirect href="/(auth)/login" />;
 
   const save = async () => {
     if (!user) return;
