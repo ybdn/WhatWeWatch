@@ -16,11 +16,13 @@ export default function HomeScreen() {
 
   return (
     <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      overScrollMode="never"
+      alwaysBounceVertical={false}
       contentContainerStyle={{
         paddingTop: 28,
         paddingBottom: 48,
         paddingHorizontal: 20,
-        backgroundColor: theme.colors.background,
         gap: 28,
       }}
     >
