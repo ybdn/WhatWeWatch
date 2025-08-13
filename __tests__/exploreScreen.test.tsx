@@ -19,41 +19,35 @@ jest.mock("../hooks/useTheme", () => ({
   }),
 }));
 
-jest.mock("../lib/searchService", () => ({
-  searchMedia: jest.fn(async (q: string) =>
-    q.length < 2
-      ? []
-      : [
-          {
-            id: "1",
-            title: "Mock Film",
-            overview: "A mocked film entry.",
-          },
-        ]
-  ),
-}));
-
-jest.mock("../lib/curatedCollections", () => ({
-  curatedCollections: [
-    {
-      id: "mock_coll",
-      title: "Section Test",
-      items: [
-        { id: "c1", title: "Card 1", color: "#123456" },
-        { id: "c2", title: "Card 2", color: "#654321" },
-      ],
-    },
-  ],
-}));
-
-// Mock useAsync pour avoir un cycle stable sans setState async hors act
-jest.mock("../hooks/useAsync", () => ({
-  useAsync: (fn: any) => ({
-    data: [],
+// Nouveau hook unifié pour Explore
+jest.mock("../hooks/useExploreData", () => ({
+  useExploreData: () => ({
+    query: "",
+    setQuery: jest.fn(),
+    debounced: "",
     loading: false,
-    error: null,
-    refetch: fn,
-    cancel: () => {},
+    error: false,
+    showEmpty: false,
+    sections: [
+      {
+        id: "top",
+        title: "Top recherché",
+        type: "top",
+        items: [{ id: "t1", title: "Top 1" }],
+      },
+      {
+        id: "trending",
+        title: "Tendances",
+        type: "trending",
+        items: [{ id: "tr1", title: "Trend 1" }],
+      },
+      {
+        id: "mock_coll",
+        title: "Section Test",
+        type: "collection",
+        items: [{ id: "c1", title: "Card 1", color: "#123456" }],
+      },
+    ],
   }),
 }));
 
@@ -71,9 +65,12 @@ afterAll(() => {
 });
 
 describe("ExploreScreen", () => {
-  it("renders", () => {
+  it("renders sections", () => {
+    let tree: any;
     act(() => {
-      renderer.create(<ExploreScreen />);
+      tree = renderer.create(<ExploreScreen />);
     });
+    const json = tree.toJSON();
+    expect(json).toBeTruthy();
   });
 });
