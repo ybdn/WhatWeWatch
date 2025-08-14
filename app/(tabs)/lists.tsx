@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  FlatList,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -8,26 +7,12 @@ import {
   View,
 } from "react-native";
 import { getTheme } from "../../theme/colors";
-
-interface MockItem {
-  id: string;
-  title: string;
-  meta?: string;
-  color: string;
-}
-
-const mockWatchlist: MockItem[] = [
-  { id: "w1", title: "Dune: Part II", meta: "Film", color: "#264653" },
-  { id: "w2", title: "The Acolyte", meta: "Série", color: "#2a9d8f" },
-  { id: "w3", title: "Furiosa", meta: "Film", color: "#e9c46a" },
-  { id: "w4", title: "3 Body Problem", meta: "Série", color: "#f4a261" },
-];
-
-const mockFinished: MockItem[] = [
-  { id: "f1", title: "Oppenheimer", meta: "Film", color: "#8ecae6" },
-  { id: "f2", title: "Severance", meta: "Série", color: "#ffb703" },
-  { id: "f3", title: "Poor Things", meta: "Film", color: "#fb8500" },
-];
+import SectionWithCarousel from "../../components/SectionWithCarousel";
+import { useWatchlist } from "../../hooks/useWatchlist";
+import TagChips, { TagChipItem } from "../../components/TagChips";
+import { useList } from "../../context/ListContext";
+import { ContentItem } from "../../lib/tmdbService";
+import { Toast, useToast } from "../../components/Toast";
 
 const SectionHeader = ({
   title,
@@ -75,131 +60,55 @@ const SectionHeader = ({
   );
 };
 
-const PillButton = ({ label }: { label: string }) => {
-  const scheme = useColorScheme();
-  const theme = getTheme(scheme);
-  return (
-    <TouchableOpacity
-      style={{
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        backgroundColor: theme.colors.card,
-        borderColor: theme.colors.cardBorder,
-        borderWidth: 1,
-        borderRadius: 999,
-        marginRight: 10,
-        marginBottom: 10,
-      }}
-    >
-      <Text
-        style={{ color: theme.colors.text, fontSize: 13, fontWeight: "500" }}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-};
 
-const ItemCard = ({ item }: { item: MockItem }) => {
-  const scheme = useColorScheme();
-  const theme = getTheme(scheme);
-  return (
-    <View
-      style={{
-        width: 140,
-        height: 190,
-        borderRadius: 12,
-        backgroundColor: item.color,
-        marginRight: 12,
-        padding: 10,
-        justifyContent: "flex-end",
-      }}
-    >
-      <Text
-        numberOfLines={2}
-        style={{
-          color: "#fff",
-          fontWeight: "600",
-          fontSize: 14,
-          marginBottom: 2,
-        }}
-      >
-        {item.title}
-      </Text>
-      {item.meta && (
-        <Text style={{ color: "#ffffffcc", fontSize: 11 }}>{item.meta}</Text>
-      )}
-    </View>
-  );
-};
 
-const HorizontalList = ({ data }: { data: MockItem[] }) => (
-  <FlatList
-    horizontal
-    data={data}
-    keyExtractor={(it) => it.id}
-    showsHorizontalScrollIndicator={false}
-    contentContainerStyle={{ paddingHorizontal: 20 }}
-    renderItem={({ item }) => <ItemCard item={item} />}
-  />
-);
-
-const EmptyCustomLists = () => {
-  const scheme = useColorScheme();
-  const theme = getTheme(scheme);
-  return (
-    <View
-      style={{
-        paddingHorizontal: 20,
-        paddingVertical: 28,
-        borderWidth: 1,
-        borderColor: theme.colors.cardBorder,
-        backgroundColor: theme.colors.card,
-        borderRadius: 16,
-        marginHorizontal: 20,
-        marginTop: 4,
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 15,
-          fontWeight: "600",
-          color: theme.colors.text,
-          marginBottom: 6,
-        }}
-      >
-        Aucune liste personnalisée
-      </Text>
-      <Text
-        style={{
-          fontSize: 13,
-          lineHeight: 18,
-          color: theme.colors.textSecondary,
-          marginBottom: 14,
-        }}
-      >
-        Crée des listes pour organiser tes watch parties, thèmes ou découvertes.
-      </Text>
-      <TouchableOpacity
-        style={{
-          backgroundColor: theme.colors.tint,
-          paddingHorizontal: 16,
-          paddingVertical: 10,
-          borderRadius: 10,
-          alignSelf: "flex-start",
-        }}
-      >
-        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 14 }}>
-          + Nouvelle liste
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 export default function Lists() {
   const scheme = useColorScheme();
   const theme = getTheme(scheme);
+  const { watchlist, finished } = useWatchlist();
+  const listManager = useList();
+  const { toast, showToast, hideToast } = useToast();
+
+  // Gestionnaires pour les actions de listes
+  const handleMarkAsFinished = async (item: any) => {
+    try {
+      const contentItem: ContentItem = item;
+      await listManager.markAsFinished(contentItem);
+      showToast(`"${contentItem.title}" marqué comme terminé`, 'success');
+    } catch (error) {
+      console.error('Error marking as finished:', error);
+      showToast('Erreur lors de la mise à jour', 'error');
+    }
+  };
+
+  // Convertir les données de listes pour l'affichage
+  const watchlistData = listManager.watchlist.map(listItem => listItem.contentData);
+  const finishedData = listManager.finished.map(listItem => listItem.contentData);
+
+  // Create tag chips for quick filters
+  const filterChips: TagChipItem[] = [
+    {
+      id: "watchlist",
+      label: "Watchlist",
+      onPress: () => console.log("Watchlist pressed"),
+    },
+    {
+      id: "finished",
+      label: "Terminé",
+      onPress: () => console.log("Finished pressed"),
+    },
+    {
+      id: "rewatch",
+      label: "À revoir",
+      onPress: () => console.log("Rewatch pressed"),
+    },
+    {
+      id: "favorites",
+      label: "Favoris",
+      onPress: () => console.log("Favorites pressed"),
+    },
+  ];
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
@@ -230,21 +139,34 @@ export default function Lists() {
       </View>
 
       {/* Quick filters / actions */}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", paddingLeft: 20 }}>
-        <PillButton label="Watchlist" />
-        <PillButton label="Terminé" />
-        <PillButton label="À revoir" />
-        <PillButton label="Favoris" />
-        <PillButton label="Listes perso" />
-      </View>
+      <TagChips 
+        items={filterChips}
+        containerStyle={{ marginBottom: 4 }}
+      />
 
       {/* Watchlist section */}
-      <SectionHeader title="Watchlist" action="Tout voir" />
-      <HorizontalList data={mockWatchlist} />
+      <SectionWithCarousel 
+        title="Watchlist" 
+        subtitle="Films et séries que tu veux voir"
+        action={watchlistData.length > 0 ? "Tout voir" : undefined}
+        data={watchlistData}
+        showAsEmpty={watchlistData.length === 0}
+        emptyMessage="Ajoute des films et séries à ta watchlist pour les voir ici."
+        showFinishedButton={true}
+        onMarkAsFinished={handleMarkAsFinished}
+        isInWatchlist={listManager.isInWatchlist}
+        isFinished={listManager.isFinished}
+      />
 
       {/* Finished section */}
-      <SectionHeader title="Terminé récemment" action="Historique" />
-      <HorizontalList data={mockFinished} />
+      <SectionWithCarousel 
+        title="Terminé récemment" 
+        subtitle="Tes derniers visionnages"
+        action={finishedData.length > 0 ? "Historique" : undefined}
+        data={finishedData}
+        showAsEmpty={finishedData.length === 0}
+        emptyMessage="Les contenus que tu auras terminés apparaîtront ici."
+      />
 
       {/* To Rewatch (placeholder) */}
       <SectionHeader title="À revoir" />
@@ -274,10 +196,8 @@ export default function Lists() {
         </View>
       </View>
 
-      {/* Custom lists empty state */}
-      <SectionHeader title="Listes personnalisées" action="Créer" />
-      <EmptyCustomLists />
 
+      <Toast message={toast} onHide={hideToast} />
       <View style={{ height: 40 }} />
     </ScrollView>
   );

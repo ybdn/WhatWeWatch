@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ToastProvider } from "../context/ToastContext";
+import { ListProvider } from "../context/ListContext";
 
 export function Gate() {
   const { loading, user, profile, mfaPending } = useAuth();
@@ -64,7 +65,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <ToastProvider>
-          <Gate />
+          <ListProvider>
+            <Gate />
+          </ListProvider>
         </ToastProvider>
       </AuthProvider>
     </SafeAreaProvider>

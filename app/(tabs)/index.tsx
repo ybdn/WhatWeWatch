@@ -3,16 +3,39 @@ import React, { useMemo } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../hooks/useTheme";
+import SectionWithCarousel from "../../components/SectionWithCarousel";
+import { useWatchlist } from "../../hooks/useWatchlist";
+import { useList } from "../../context/ListContext";
+import { ContentItem } from "../../lib/tmdbService";
+import { Toast, useToast } from "../../components/Toast";
 
 // Accueil authentifié: résumé rapide + accès aux principales sections.
 export default function HomeScreen() {
   const theme = useTheme();
   const { user, profile } = useAuth();
+  const { watchlist, hasWatchlistItems } = useWatchlist();
+  const listManager = useList();
+  const { toast, showToast, hideToast } = useToast();
 
   const displayName = useMemo(
     () => profile?.display_name || user?.email?.split("@")[0] || "",
     [profile?.display_name, user?.email]
   );
+
+  // Gestionnaires pour les actions de listes
+  const handleMarkAsFinished = async (item: any) => {
+    try {
+      const contentItem: ContentItem = item; // Conversion du type CarouselItem vers ContentItem
+      await listManager.markAsFinished(contentItem);
+      showToast(`"${contentItem.title}" marqué comme terminé`, 'success');
+    } catch (error) {
+      console.error('Error marking as finished:', error);
+      showToast('Erreur lors de la mise à jour', 'error');
+    }
+  };
+
+  // Convertir les items de watchlist pour l'affichage
+  const watchlistData = listManager.watchlist.map(listItem => listItem.contentData);
 
   return (
     <ScrollView
@@ -56,13 +79,25 @@ export default function HomeScreen() {
         <SkeletonRow />
       </Section>
 
-      <Section title="Ta Watchlist (bientôt)">
-        <EmptyState message="Les prochains films à voir apparaîtront ici." />
-      </Section>
+      <SectionWithCarousel 
+        title="Ta Watchlist"
+        subtitle="Films et séries que tu veux voir"
+        action={watchlistData.length > 0 ? "Tout voir" : undefined}
+        data={watchlistData}
+        showAsEmpty={watchlistData.length === 0}
+        emptyMessage="Les prochains films à voir apparaîtront ici."
+        noPadding={true}
+        showFinishedButton={true}
+        onMarkAsFinished={handleMarkAsFinished}
+        isInWatchlist={listManager.isInWatchlist}
+        isFinished={listManager.isFinished}
+      />
 
       <Section title="Progression (bientôt)">
         <EmptyState message="Séries & films en cours de visionnage." />
       </Section>
+      
+      <Toast message={toast} onHide={hideToast} />
     </ScrollView>
   );
 }

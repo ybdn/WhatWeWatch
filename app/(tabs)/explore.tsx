@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -13,11 +14,27 @@ import { useTheme } from "../../hooks/useTheme";
 import { track } from "../../lib/analytics";
 import { curatedCollections } from "../../lib/curatedCollections";
 import { MediaSearchResult } from "../../lib/searchService";
+import { ContentItem } from "../../lib/tmdbService";
+import SectionWithCarousel from "../../components/SectionWithCarousel";
+import TagChips, { TagChipItem } from "../../components/TagChips";
+import { useList } from "../../context/ListContext";
+import { Toast, useToast } from "../../components/Toast";
 
 export default function ExploreScreen() {
   const theme = useTheme();
-  const { query, setQuery, debounced, loading, error, sections, showEmpty } =
-    useExploreData();
+  const { 
+    query, 
+    setQuery, 
+    debounced, 
+    loading, 
+    error, 
+    sections, 
+    showEmpty,
+    sectionsLoading,
+    sectionsError,
+  } = useExploreData();
+  const listManager = useList();
+  const { toast, showToast, hideToast } = useToast();
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -32,15 +49,40 @@ export default function ExploreScreen() {
           .filter((s) => s.type === "top" || s.type === "trending")
           .forEach((s) => {
             s.items.forEach((it: any) => {
-              if (!merged[it.id]) merged[it.id] = it;
+              // Convert ContentItem to suggestion format if needed
+              if (!merged[it.id]) {
+                merged[it.id] = it;
+              }
             });
           });
-        return Object.values(merged);
+        return Object.values(merged).slice(0, 8); // Increase for better scroll experience
       })()
     : [];
+
+  // Convert suggestions to TagChipItem format
+  const suggestionChips: TagChipItem[] = suggestions.map((item: any) => ({
+    id: item.id,
+    label: item.title,
+    onPress: () => track("explore_click_item", {
+      from_section: "suggestions",
+      id: item.id,
+    }),
+  }));
   const homeSections = !isSearchMode
     ? sections.filter((s) => s.type === "collection")
     : [];
+
+  // Gestionnaire pour ajouter à la watchlist
+  const handleAddToWatchlist = async (item: any) => {
+    try {
+      const contentItem: ContentItem = item;
+      await listManager.addToWatchlist(contentItem);
+      showToast(`"${contentItem.title}" ajouté à la watchlist`, 'success');
+    } catch (error) {
+      console.error('Error adding to watchlist:', error);
+      showToast('Erreur lors de l\'ajout', 'error');
+    }
+  };
 
   return (
     <View style={styles.screen}>
@@ -68,13 +110,26 @@ export default function ExploreScreen() {
           <ActivityIndicator color={theme.colors.tint} />
         </View>
       )}
-      {!isSearchMode && suggestions.length > 0 && (
-        <SuggestionsPanel items={suggestions} />
+      {sectionsLoading && !isSearchMode && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={theme.colors.tint} />
+          <Text style={[styles.emptyText, { marginTop: 8 }]}>
+            Chargement des sections...
+          </Text>
+        </View>
+      )}
+      {sectionsError && !isSearchMode && (
+        <Text style={styles.errorText}>
+          Erreur de chargement des sections. Veuillez réessayer.
+        </Text>
+      )}
+      {!isSearchMode && suggestionChips.length > 0 && (
+        <TagChips items={suggestionChips} />
       )}
       {showEmpty && <Text style={styles.emptyText}>Aucun résultat.</Text>}
       {isSearchMode && searchResultsSection ? (
         <View style={styles.resultsContainer}>
-          <SectionTitle title={searchResultsSection.title} />
+          <Text style={styles.sectionTitle}>{searchResultsSection.title}</Text>
           <View style={styles.resultsListGap}>
             {searchResultsSection.items.map((item: MediaSearchResult) => (
               <ResultCard key={item.id} item={item} />
@@ -86,119 +141,57 @@ export default function ExploreScreen() {
           data={homeSections}
           keyExtractor={(s) => s.id}
           contentContainerStyle={styles.homeListContent}
-          renderItem={({ item }) => <HomeSection section={item} />}
+          renderItem={({ item }) => (
+            <HomeSection 
+              section={item} 
+              onAddToWatchlist={handleAddToWatchlist}
+              isInWatchlist={listManager.isInWatchlist}
+              isFinished={listManager.isFinished}
+            />
+          )}
         />
       )}
+      
+      <Toast message={toast} onHide={hideToast} />
     </View>
   );
 }
 
-function HomeSection({ section }: { section: any }) {
+function HomeSection({ section, onAddToWatchlist, isInWatchlist, isFinished }: { 
+  section: any; 
+  onAddToWatchlist: (item: any) => void;
+  isInWatchlist: (contentId: string) => boolean;
+  isFinished: (contentId: string) => boolean;
+}) {
   if (section.type === "top" || section.type === "trending") return null; // fusionné
   if (section.type === "collection") {
-    return <CollectionSection id={section.id} />;
+    return (
+      <SectionWithCarousel
+        title={section.title}
+        subtitle={section.subtitle}
+        data={section.items}
+        noPadding={false}
+        showAddButton={true}
+        onAddToWatchlist={onAddToWatchlist}
+        isInWatchlist={isInWatchlist}
+        isFinished={isFinished}
+      />
+    );
   }
   return null;
 }
 
-function SuggestionsPanel({ items }: { items: any[] }) {
-  const theme = useTheme();
-  return (
-    <View
-      style={{
-        marginTop: 4,
-        paddingHorizontal: LAYOUT.screenPadding,
-        marginBottom: 16,
-      }}
-    >
-      <View
-        style={{
-          backgroundColor: theme.colors.card,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: theme.colors.cardBorder,
-          paddingHorizontal: 12,
-          paddingVertical: 12,
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
-        {items.map((it) => (
-          <SuggestionChip key={it.id} item={it} />
-        ))}
-      </View>
-    </View>
-  );
-}
 
-function SuggestionChip({ item }: { item: any }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Suggestion ${item.title}`}
-      onPress={() =>
-        track("explore_click_item", {
-          from_section: "suggestions",
-          id: item.id,
-        })
-      }
-      style={{
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        backgroundColor: theme.colors.background,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: theme.colors.cardBorder,
-      }}
-    >
-      <Text
-        style={{ color: theme.colors.text, fontSize: 14, fontWeight: "500" }}
-      >
-        {item.title}
-      </Text>
-    </Pressable>
-  );
-}
 
-function SectionTitle({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle?: string;
-}) {
+function ResultCard({ item }: { item: MediaSearchResult | ContentItem }) {
   const theme = useTheme();
-  return (
-    <View style={{ marginBottom: subtitle ? 2 : 8 }}>
-      <Text
-        style={{
-          color: theme.colors.text,
-          fontSize: 18,
-          fontWeight: "700",
-          letterSpacing: -0.3,
-        }}
-      >
-        {title}
-      </Text>
-      {subtitle && (
-        <Text
-          style={{
-            color: theme.colors.textSecondary,
-            fontSize: 12,
-            marginTop: 2,
-          }}
-        >
-          {subtitle}
-        </Text>
-      )}
-    </View>
-  );
-}
-
-function ResultCard({ item }: { item: MediaSearchResult }) {
-  const theme = useTheme();
+  
+  // Handle both MediaSearchResult and ContentItem
+  const title = item.title;
+  const year = 'year' in item ? item.year : undefined;
+  const overview = 'overview' in item ? item.overview : 'synopsis' in item ? item.synopsis : undefined;
+  const type = 'type' in item ? item.type : undefined;
+  
   return (
     <Pressable
       style={{
@@ -212,17 +205,35 @@ function ResultCard({ item }: { item: MediaSearchResult }) {
       accessibilityRole="button"
       onPress={() => track("explore_click_result", { id: item.id })}
     >
-      <Text
-        style={{
-          color: theme.colors.text,
-          fontSize: 16,
-          fontWeight: "600",
-          letterSpacing: -0.2,
-        }}
-      >
-        {item.title} {item.year ? `(${item.year})` : ""}
-      </Text>
-      {item.overview && (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        {type && (
+          <Text
+            style={{
+              color: theme.colors.textSecondary,
+              fontSize: 11,
+              fontWeight: "500",
+              backgroundColor: theme.colors.cardBorder,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4,
+            }}
+          >
+            {type}
+          </Text>
+        )}
+        <Text
+          style={{
+            color: theme.colors.text,
+            fontSize: 16,
+            fontWeight: "600",
+            letterSpacing: -0.2,
+            flex: 1,
+          }}
+        >
+          {title} {year ? `(${year})` : ""}
+        </Text>
+      </View>
+      {overview && (
         <Text
           style={{
             color: theme.colors.textSecondary,
@@ -231,72 +242,14 @@ function ResultCard({ item }: { item: MediaSearchResult }) {
           }}
           numberOfLines={3}
         >
-          {item.overview}
+          {overview}
         </Text>
       )}
     </Pressable>
   );
 }
 
-// Composant Hint retiré (plus utilisé)
-// Collections maintenant gérées via sections; ceci reste pour rendu de section collection
-
-function CollectionSection({ id }: { id: string }) {
-  const collection = curatedCollections.find((c) => c.id === id);
-  if (!collection) return null;
-  return (
-    <View style={{ marginBottom: LAYOUT.sectionGap }}>
-      <View
-        style={{ paddingHorizontal: LAYOUT.screenPadding, marginBottom: 10 }}
-      >
-        <SectionTitle title={collection.title} subtitle={collection.subtitle} />
-      </View>
-      <FlatList
-        data={collection.items}
-        keyExtractor={(i) => i.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: LAYOUT.screenPadding - 4 }}
-        renderItem={({ item }) => <CarouselCard item={item} />}
-        ListFooterComponent={<View style={{ width: 4 }} />}
-      />
-    </View>
-  );
-}
-
-function CarouselCard({ item }: { item: any }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Ouvrir ${item.title}`}
-      onPress={() => track("explore_click_collection_item", { id: item.id })}
-      style={{
-        width: 120,
-        height: 170,
-        marginHorizontal: 4,
-        backgroundColor: item.color || theme.colors.card,
-        borderRadius: LAYOUT.cardRadius,
-        borderWidth: 1,
-        borderColor: theme.colors.cardBorder,
-        padding: 10,
-        justifyContent: "flex-end",
-      }}
-    >
-      <Text
-        style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}
-        numberOfLines={2}
-      >
-        {item.title}
-      </Text>
-      {item.year && (
-        <Text style={{ color: "#fff", fontSize: 10, opacity: 0.8 }}>
-          {item.year}
-        </Text>
-      )}
-    </Pressable>
-  );
-}
+// Collections maintenant gérées via le composant SectionWithCarousel unifié
 
 // Layout constants & styles factory
 const LAYOUT = {
@@ -347,5 +300,12 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
     },
     resultsListGap: { gap: 12 },
     homeListContent: { paddingBottom: 80 },
+    sectionTitle: {
+      color: theme.colors.text,
+      fontSize: 18,
+      fontWeight: "700",
+      letterSpacing: -0.3,
+      marginBottom: 8,
+    },
   });
 }
