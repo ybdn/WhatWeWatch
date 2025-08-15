@@ -1,6 +1,6 @@
 import { Link } from "expo-router";
-import React, { useMemo } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../hooks/useTheme";
 import SectionWithCarousel from "../../components/SectionWithCarousel";
@@ -8,14 +8,17 @@ import { useWatchlist } from "../../hooks/useWatchlist";
 import { useList } from "../../context/ListContext";
 import { ContentItem } from "../../lib/tmdbService";
 import { Toast, useToast } from "../../components/Toast";
+import DebugPanel from "../../components/DebugPanel";
+import RefreshableScrollView from "../../components/RefreshableScrollView";
 
 // Accueil authentifié: résumé rapide + accès aux principales sections.
 export default function HomeScreen() {
   const theme = useTheme();
   const { user, profile } = useAuth();
-  const { watchlist, hasWatchlistItems } = useWatchlist();
+  // const { watchlist } = useWatchlist(); // Unused, using listManager.watchlist instead
   const listManager = useList();
   const { toast, showToast, hideToast } = useToast();
+  const [debugVisible, setDebugVisible] = useState(false);
 
   const displayName = useMemo(
     () => profile?.display_name || user?.email?.split("@")[0] || "",
@@ -34,11 +37,12 @@ export default function HomeScreen() {
     }
   };
 
+
   // Convertir les items de watchlist pour l'affichage
   const watchlistData = listManager.watchlist.map(listItem => listItem.contentData);
 
   return (
-    <ScrollView
+    <RefreshableScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
       overScrollMode="never"
       alwaysBounceVertical={false}
@@ -48,19 +52,35 @@ export default function HomeScreen() {
         paddingHorizontal: 20,
         gap: 28,
       }}
+      onRefresh={listManager.refreshAllLists}
     >
       <View style={{ gap: 4 }}>
-        <Text
-          accessibilityRole="header"
-          style={{
-            fontSize: 28,
-            fontWeight: "800",
-            color: theme.colors.text,
-            letterSpacing: -0.5,
-          }}
-        >
-          Salut {displayName} !
-        </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text
+            accessibilityRole="header"
+            style={{
+              fontSize: 28,
+              fontWeight: "800",
+              color: theme.colors.text,
+              letterSpacing: -0.5,
+            }}
+          >
+            Salut {displayName} !
+          </Text>
+          <TouchableOpacity
+            onPress={() => setDebugVisible(true)}
+            style={{
+              backgroundColor: theme.colors.card,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: theme.colors.cardBorder,
+            }}
+          >
+            <Text style={{ color: theme.colors.text, fontSize: 12 }}>🔍 Debug</Text>
+          </TouchableOpacity>
+        </View>
         <Text
           style={{
             fontSize: 15,
@@ -98,7 +118,12 @@ export default function HomeScreen() {
       </Section>
       
       <Toast message={toast} onHide={hideToast} />
-    </ScrollView>
+      
+      <DebugPanel 
+        visible={debugVisible} 
+        onClose={() => setDebugVisible(false)} 
+      />
+    </RefreshableScrollView>
   );
 }
 

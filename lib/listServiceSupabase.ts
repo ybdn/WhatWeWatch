@@ -59,15 +59,24 @@ export class ListServiceSupabase {
         .order('added_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase error, falling back to local storage:', error);
+        console.error('Supabase error:', error);
+        // Si la table n'existe pas encore, retourner liste vide au lieu de local
+        if (error.code === 'PGRST205') {
+          console.log('Table user_content_status not found, returning empty list. Create the table in Supabase first.');
+          return [];
+        }
+        // Pour d'autres erreurs, utiliser le fallback local
         return await ListService.getWatchlist();
       }
 
-      return (data || []).map((item: UserContentStatus) => ({
+      // Succès Supabase - synchroniser le local en arrière-plan si nécessaire
+      const supabaseList = (data || []).map((item: UserContentStatus) => ({
         contentId: item.content_id,
         addedAt: new Date(item.added_at),
         contentData: item.content_data,
       }));
+
+      return supabaseList;
     } catch (error) {
       console.error('Error getting watchlist:', error);
       return await ListService.getWatchlist();
@@ -119,12 +128,12 @@ export class ListServiceSupabase {
         if (error) throw error;
       }
 
-      // Synchroniser avec le stockage local aussi
-      await ListService.addToWatchlist(content);
+      // Synchroniser avec le stockage local en arrière-plan
+      ListService.addToWatchlist(content).catch(console.error);
     } catch (error) {
       console.error('Error adding to watchlist:', error);
-      // Fallback sur local storage en cas d'erreur
-      await ListService.addToWatchlist(content);
+      // Fallback sur local storage en cas d'erreur Supabase
+      throw error; // On relance l'erreur pour informer l'utilisateur
     }
   }
 
@@ -201,7 +210,13 @@ export class ListServiceSupabase {
         .order('finished_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase error, falling back to local storage:', error);
+        console.error('Supabase error:', error);
+        // Si la table n'existe pas encore, retourner liste vide
+        if (error.code === 'PGRST205') {
+          console.log('Table user_content_status not found for finished items, returning empty list.');
+          return [];
+        }
+        // Pour d'autres erreurs, utiliser le fallback local
         return await ListService.getFinished();
       }
 
@@ -265,11 +280,11 @@ export class ListServiceSupabase {
         if (error) throw error;
       }
 
-      // Synchroniser avec le stockage local
-      await ListService.markAsFinished(content);
+      // Synchroniser avec le stockage local en arrière-plan
+      ListService.markAsFinished(content).catch(console.error);
     } catch (error) {
       console.error('Error marking as finished:', error);
-      await ListService.markAsFinished(content);
+      throw error; // On relance l'erreur pour informer l'utilisateur
     }
   }
 
@@ -319,7 +334,13 @@ export class ListServiceSupabase {
         .order('added_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase error, falling back to local storage:', error);
+        console.error('Supabase error:', error);
+        // Si la table n'existe pas encore, retourner liste vide
+        if (error.code === 'PGRST205') {
+          console.log('Table user_content_status not found for favorites, returning empty list.');
+          return [];
+        }
+        // Pour d'autres erreurs, utiliser le fallback local
         return await ListService.getFavorites();
       }
 
@@ -376,10 +397,11 @@ export class ListServiceSupabase {
         if (error) throw error;
       }
 
-      await ListService.addToFavorites(content);
+      // Synchroniser avec le stockage local en arrière-plan
+      ListService.addToFavorites(content).catch(console.error);
     } catch (error) {
       console.error('Error adding to favorites:', error);
-      await ListService.addToFavorites(content);
+      throw error; // On relance l'erreur pour informer l'utilisateur
     }
   }
 
@@ -402,10 +424,11 @@ export class ListServiceSupabase {
 
       if (error) throw error;
 
-      await ListService.removeFromFavorites(contentId);
+      // Synchroniser avec le stockage local en arrière-plan
+      ListService.removeFromFavorites(contentId).catch(console.error);
     } catch (error) {
       console.error('Error removing from favorites:', error);
-      await ListService.removeFromFavorites(contentId);
+      throw error; // On relance l'erreur pour informer l'utilisateur
     }
   }
 

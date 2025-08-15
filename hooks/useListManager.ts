@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import ListServiceSupabase, { ListItem } from '../lib/listServiceSupabase';
 import { ContentItem } from '../lib/tmdbService';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { AppState } from 'react-native';
 
 interface UseListManagerReturn {
   // États des listes
@@ -47,6 +50,8 @@ interface UseListManagerReturn {
 }
 
 export function useListManager(): UseListManagerReturn {
+  const { user, loading: authLoading } = useAuth();
+  
   // États des listes
   const [watchlist, setWatchlist] = useState<ListItem[]>([]);
   const [finished, setFinished] = useState<ListItem[]>([]);
@@ -198,22 +203,84 @@ export function useListManager(): UseListManagerReturn {
     };
   }, [watchlist.length, finished.length, favorites.length]);
 
-  // Charger les données au montage et migrer si nécessaire
+  // Charger les données quand l'auth est prête
   useEffect(() => {
     const initializeAndMigrate = async () => {
-      // Charger les données
+      if (authLoading) {
+        // Attendre que l'auth soit prête
+        return;
+      }
+      
+      console.log('Initializing lists, user authenticated:', !!user);
+      
+      // Charger les données depuis Supabase si utilisateur connecté, sinon local
       await refreshAllLists();
       
-      // Tentative de migration des données locales vers Supabase
-      try {
-        await ListServiceSupabase.migrateLocalDataToSupabase();
-      } catch (error) {
-        console.log('Migration skipped or failed:', error);
+      // Si utilisateur connecté, tenter la migration des données locales
+      if (user) {
+        try {
+          await ListServiceSupabase.migrateLocalDataToSupabase();
+        } catch (error) {
+          console.log('Migration skipped or failed:', error);
+        }
       }
     };
     
     initializeAndMigrate();
-  }, []);
+  }, [user, authLoading, refreshAllLists]);
+
+  // Synchronisation avec Supabase (Realtime + fallback polling)
+  useEffect(() => {
+    if (!user || !supabase) return;
+
+    console.log('Setting up sync for user:', user.id);
+
+    // Essayer d'abord le Realtime
+    const channel = supabase
+      .channel('user_content_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'user_content_status',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          // Recharger les listes quand il y a un changement
+          refreshAllLists().catch(console.error);
+        }
+      )
+      .subscribe();
+
+    // Fallback : polling fréquent (3 secondes) quand l'app est active
+    const pollingInterval = setInterval(() => {
+      refreshAllLists().catch(console.error);
+    }, 3000); // 3 secondes
+
+    return () => {
+      console.log('Cleaning up sync');
+      supabase.removeChannel(channel);
+      clearInterval(pollingInterval);
+    };
+  }, [user, refreshAllLists]);
+
+  // Synchronisation quand l'app revient au premier plan
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active' && user) {
+        console.log('App became active, refreshing lists');
+        refreshAllLists().catch(console.error);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+    };
+  }, [user, refreshAllLists]);
 
   return {
     // États des listes

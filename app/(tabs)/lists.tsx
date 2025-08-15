@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  ScrollView,
   Text,
   TouchableOpacity,
   useColorScheme,
@@ -13,6 +12,7 @@ import TagChips, { TagChipItem } from "../../components/TagChips";
 import { useList } from "../../context/ListContext";
 import { ContentItem } from "../../lib/tmdbService";
 import { Toast, useToast } from "../../components/Toast";
+import RefreshableScrollView from "../../components/RefreshableScrollView";
 
 const SectionHeader = ({
   title,
@@ -110,9 +110,9 @@ export default function Lists() {
     },
   ];
   return (
-    <ScrollView
+    <RefreshableScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
-      contentInsetAdjustmentBehavior="automatic"
+      onRefresh={listManager.refreshAllLists}
     >
       {/* Header */}
       <View style={{ paddingTop: 8, paddingHorizontal: 20 }}>
@@ -199,6 +199,6 @@ export default function Lists() {
 
       <Toast message={toast} onHide={hideToast} />
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }

@@ -9,6 +9,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { AppState } from "react-native";
 import { mapAuthError } from "../lib/errorMapping";
 import { passwordScore } from "../lib/password";
 import { fetchProfile, Profile } from "../lib/profileService";
@@ -100,6 +101,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     init();
   }, []);
+
+  // Auto-refresh email confirmation when app comes to foreground
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active' && user && !user.emailConfirmed) {
+        // App came to foreground and user email is not confirmed
+        // Wait a bit then check email confirmation
+        setTimeout(() => {
+          refreshEmailConfirmation().catch(() => {});
+        }, 1000);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+    };
+  }, [user, refreshEmailConfirmation]);
 
   const persistLocalUser = async (u: AuthUser | null) => {
     if (u) await AsyncStorage.setItem(LOCAL_USER_KEY, JSON.stringify(u));
@@ -218,20 +238,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshEmailConfirmation = useCallback(async () => {
     const client = getClient();
     if (!client) return;
-    const { data } = await client.auth.getUser();
-    if (data.user) {
-      setUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              emailConfirmed: !!data.user?.email_confirmed_at,
-            }
-          : {
-              id: data.user.id,
-              email: data.user.email ?? null,
-              emailConfirmed: !!data.user.email_confirmed_at,
-            }
-      );
+    
+    try {
+      // Forcer l'actualisation de la session d'abord
+      await client.auth.refreshSession();
+      
+      // Puis récupérer les données utilisateur actualisées
+      const { data } = await client.auth.getUser();
+      
+      if (data.user) {
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                emailConfirmed: !!data.user?.email_confirmed_at,
+              }
+            : {
+                id: data.user.id,
+                email: data.user.email ?? null,
+                emailConfirmed: !!data.user.email_confirmed_at,
+              }
+        );
+      }
+    } catch (error) {
+      console.error('Error refreshing email confirmation:', error);
+      // En cas d'erreur, essayer quand même de récupérer l'utilisateur
+      const { data } = await client.auth.getUser();
+      if (data.user) {
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                emailConfirmed: !!data.user?.email_confirmed_at,
+              }
+            : {
+                id: data.user.id,
+                email: data.user.email ?? null,
+                emailConfirmed: !!data.user.email_confirmed_at,
+              }
+        );
+      }
     }
   }, []);
 

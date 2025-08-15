@@ -1,5 +1,6 @@
 import { Href, Stack, usePathname, useRouter } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ToastProvider } from "../context/ToastContext";
@@ -10,38 +11,40 @@ export function Gate() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Redirections d'onboarding selon l'état du compte
-  if (!loading && user) {
-    // MFA challenge prioritaire si en attente
-    if (mfaPending && pathname !== "/mfa-challenge") {
-      router.replace("/mfa-challenge" as Href);
-      return null;
-    }
-    // 1. Email non confirmé -> verify-email
-    if (user.emailConfirmed === false) {
-      const allowed = [
-        "/(onboarding)/verify-email",
-        "/(auth)/login",
-        "/(auth)/register",
-        "/(auth)/reset-password",
-      ];
-      if (!allowed.includes(pathname)) {
-        router.replace("/(onboarding)/verify-email");
+  // Redirections d'onboarding selon l'état du compte - dans useEffect pour éviter les erreurs de render
+  useEffect(() => {
+    if (!loading && user) {
+      // MFA challenge prioritaire si en attente
+      if (mfaPending && pathname !== "/mfa-challenge") {
+        router.replace("/mfa-challenge" as Href);
+        return;
       }
-    } else if (profile && !profile.display_name) {
-      // 2. Profil incomplet -> profile-completion
-      const allowed = [
-        "/(onboarding)/profile-completion",
-        "/(auth)/login",
-        "/(auth)/register",
-        "/(auth)/reset-password",
-        "/(onboarding)/verify-email",
-      ];
-      if (!allowed.includes(pathname)) {
-        router.replace("/(onboarding)/profile-completion");
+      // 1. Email non confirmé -> verify-email
+      if (user.emailConfirmed === false) {
+        const allowed = [
+          "/(onboarding)/verify-email",
+          "/(auth)/login",
+          "/(auth)/register",
+          "/(auth)/reset-password",
+        ];
+        if (!allowed.includes(pathname)) {
+          router.replace("/(onboarding)/verify-email");
+        }
+      } else if (profile && !profile.display_name) {
+        // 2. Profil incomplet -> profile-completion
+        const allowed = [
+          "/(onboarding)/profile-completion",
+          "/(auth)/login",
+          "/(auth)/register",
+          "/(auth)/reset-password",
+          "/(onboarding)/verify-email",
+        ];
+        if (!allowed.includes(pathname)) {
+          router.replace("/(onboarding)/profile-completion");
+        }
       }
     }
-  }
+  }, [loading, user, profile, mfaPending, pathname, router]);
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
