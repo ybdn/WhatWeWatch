@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import ListServiceSupabase, { ListItem } from '../lib/listServiceSupabase';
+import { ListServiceSupabase, ListItem } from '../lib/listServiceSupabase';
 import { ContentItem } from '../lib/tmdbService';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -261,7 +261,9 @@ export function useListManager(): UseListManagerReturn {
 
     return () => {
       console.log('Cleaning up sync');
-      supabase.removeChannel(channel);
+      if (supabase) {
+        supabase.removeChannel(channel);
+      }
       clearInterval(pollingInterval);
     };
   }, [user, refreshAllLists]);

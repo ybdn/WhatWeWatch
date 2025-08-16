@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ContentItem } from './tmdbService';
 
-// Types pour le système de listes
+// Types pour le systï¿½me de listes
 export interface ListItem {
   contentId: string;
   addedAt: Date;
@@ -25,7 +25,7 @@ export enum DefaultListType {
   TO_REWATCH = 'to_rewatch',
 }
 
-// Clés de stockage
+// Clï¿½s de stockage
 const STORAGE_KEYS = {
   LISTS: 'user_lists',
   WATCHLIST: 'user_watchlist',
@@ -36,9 +36,9 @@ const STORAGE_KEYS = {
 
 // Service de gestion des listes
 export class ListService {
-  // === LISTES PAR DÉFAUT ===
+  // === LISTES PAR Dï¿½FAUT ===
   
-  // Récupérer la watchlist
+  // Rï¿½cupï¿½rer la watchlist
   static async getWatchlist(): Promise<ListItem[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.WATCHLIST);
@@ -55,14 +55,14 @@ export class ListService {
     }
   }
 
-  // Ajouter à la watchlist
+  // Ajouter ï¿½ la watchlist
   static async addToWatchlist(content: ContentItem): Promise<void> {
     try {
       const watchlist = await this.getWatchlist();
       
-      // Vérifier si déjà présent
+      // Vï¿½rifier si dï¿½jï¿½ prï¿½sent
       if (watchlist.some(item => item.contentId === content.id)) {
-        return; // Déjà dans la liste
+        return; // Dï¿½jï¿½ dans la liste
       }
 
       const newItem: ListItem = {
@@ -91,7 +91,7 @@ export class ListService {
     }
   }
 
-  // Vérifier si un contenu est dans la watchlist
+  // Vï¿½rifier si un contenu est dans la watchlist
   static async isInWatchlist(contentId: string): Promise<boolean> {
     try {
       const watchlist = await this.getWatchlist();
@@ -102,9 +102,9 @@ export class ListService {
     }
   }
 
-  // === CONTENUS TERMINÉS ===
+  // === CONTENUS TERMINï¿½S ===
   
-  // Récupérer les contenus terminés
+  // Rï¿½cupï¿½rer les contenus terminï¿½s
   static async getFinished(): Promise<ListItem[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.FINISHED);
@@ -121,15 +121,15 @@ export class ListService {
     }
   }
 
-  // Marquer comme terminé (et retirer de la watchlist)
+  // Marquer comme terminï¿½ (et retirer de la watchlist)
   static async markAsFinished(content: ContentItem): Promise<void> {
     try {
-      // Ajouter aux terminés
+      // Ajouter aux terminï¿½s
       const finished = await this.getFinished();
       
-      // Vérifier si déjà présent
+      // Vï¿½rifier si dï¿½jï¿½ prï¿½sent
       if (finished.some(item => item.contentId === content.id)) {
-        return; // Déjà terminé
+        return; // Dï¿½jï¿½ terminï¿½
       }
 
       const newItem: ListItem = {
@@ -141,7 +141,7 @@ export class ListService {
       const updatedFinished = [newItem, ...finished];
       await AsyncStorage.setItem(STORAGE_KEYS.FINISHED, JSON.stringify(updatedFinished));
 
-      // Retirer de la watchlist si présent
+      // Retirer de la watchlist si prï¿½sent
       await this.removeFromWatchlist(content.id);
     } catch (error) {
       console.error('Error marking as finished:', error);
@@ -149,7 +149,7 @@ export class ListService {
     }
   }
 
-  // Vérifier si un contenu est terminé
+  // Vï¿½rifier si un contenu est terminï¿½
   static async isFinished(contentId: string): Promise<boolean> {
     try {
       const finished = await this.getFinished();
@@ -162,7 +162,7 @@ export class ListService {
 
   // === FAVORIS ===
   
-  // Récupérer les favoris
+  // Rï¿½cupï¿½rer les favoris
   static async getFavorites(): Promise<ListItem[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.FAVORITES);
@@ -184,9 +184,9 @@ export class ListService {
     try {
       const favorites = await this.getFavorites();
       
-      // Vérifier si déjà présent
+      // Vï¿½rifier si dï¿½jï¿½ prï¿½sent
       if (favorites.some(item => item.contentId === content.id)) {
-        return; // Déjà dans les favoris
+        return; // Dï¿½jï¿½ dans les favoris
       }
 
       const newItem: ListItem = {
@@ -215,7 +215,7 @@ export class ListService {
     }
   }
 
-  // Vérifier si un contenu est dans les favoris
+  // Vï¿½rifier si un contenu est dans les favoris
   static async isFavorite(contentId: string): Promise<boolean> {
     try {
       const favorites = await this.getFavorites();

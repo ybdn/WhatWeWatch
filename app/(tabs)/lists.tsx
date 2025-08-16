@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { getTheme } from "../../theme/colors";
 import SectionWithCarousel from "../../components/SectionWithCarousel";
-import { useWatchlist } from "../../hooks/useWatchlist";
+import {} from "../../hooks/useWatchlist";
 import TagChips, { TagChipItem } from "../../components/TagChips";
 import { useList } from "../../context/ListContext";
 import { ContentItem } from "../../lib/tmdbService";

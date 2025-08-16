@@ -349,8 +349,8 @@ export default function ContentModal({ visible, item, onClose }: ContentModalPro
           {/* Contenu scrollable */}
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
-            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ padding: 24, paddingBottom: 0 }}
+            showsVerticalScrollIndicator={true}
           >
             {/* Boutons d'action */}
             <View style={{ marginBottom: 24 }}>
@@ -388,7 +388,7 @@ export default function ContentModal({ visible, item, onClose }: ContentModalPro
                     }}
                   >
                     <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
-                      ✓ Terminé
+                      ✓ Vu
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -412,7 +412,7 @@ export default function ContentModal({ visible, item, onClose }: ContentModalPro
                     color: listManager.isFavorite(item.id) ? "#fff" : theme.colors.text, 
                     fontSize: 16 
                   }}>
-                    {listManager.isFavorite(item.id) ? "❤️" : "🤍"}
+                    {listManager.isFavorite(item.id) ? "♥️" : "🤍"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -482,8 +482,8 @@ export default function ContentModal({ visible, item, onClose }: ContentModalPro
                   Synopsis
                 </Text>
                 <ScrollView 
-                  style={{ maxHeight: 120 }} 
-                  showsVerticalScrollIndicator={true}
+                  style={{ maxHeight: 220 }} 
+                  showsVerticalScrollIndicator={false}
                   nestedScrollEnabled={true}
                 >
                   <Text
