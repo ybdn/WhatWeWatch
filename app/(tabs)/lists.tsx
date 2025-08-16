@@ -66,7 +66,7 @@ const SectionHeader = ({
 export default function Lists() {
   const scheme = useColorScheme();
   const theme = getTheme(scheme);
-  const { watchlist, finished } = useWatchlist();
+  // const { watchlist, finished } = useWatchlist();
   const listManager = useList();
   const { toast, showToast, hideToast } = useToast();
 
