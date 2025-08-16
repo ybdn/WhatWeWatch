@@ -2,7 +2,6 @@ import React, { useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -12,7 +11,7 @@ import {
 import { useExploreData } from "../../hooks/useExploreData";
 import { useTheme } from "../../hooks/useTheme";
 import { track } from "../../lib/analytics";
-import { curatedCollections } from "../../lib/curatedCollections";
+import {} from "../../lib/curatedCollections";
 import { MediaSearchResult } from "../../lib/searchService";
 import { ContentItem } from "../../lib/tmdbService";
 import SectionWithCarousel from "../../components/SectionWithCarousel";

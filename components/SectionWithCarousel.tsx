@@ -354,7 +354,7 @@ function CarouselCard({
               accessibilityLabel="Marquer comme terminé"
               accessibilityRole="button"
             >
-              <Text style={{ color: '#4CAF50', fontSize: 16, fontWeight: 'bold' }}>✓</Text>
+              <Text style={{ color:'#fff', fontSize: 16, fontWeight: 'bold' }}>✓</Text>
             </Pressable>
           )}
           
@@ -368,7 +368,7 @@ function CarouselCard({
               style={{
                 width: 28,
                 height: 28,
-                borderRadius: 14,
+                borderRadius: 20,
                 backgroundColor: 'rgba(0, 0, 0, 0.7)',
                 justifyContent: 'center',
                 alignItems: 'center',
@@ -378,7 +378,7 @@ function CarouselCard({
               accessibilityLabel="Ajouter à la watchlist"
               accessibilityRole="button"
             >
-              <Text style={{ color: '#2196F3', fontSize: 18, fontWeight: 'bold' }}>+</Text>
+              <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold' }}>+</Text>
             </Pressable>
           )}
         </View>

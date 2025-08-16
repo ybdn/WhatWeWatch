@@ -34,7 +34,7 @@ export default function MfaScreen() {
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [code, setCode] = useState("");
 
-  async function refresh() {
+  const refresh = React.useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -45,13 +45,11 @@ export default function MfaScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, show]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     refresh();
-  }, [user?.id]);
-
+  }, [user?.id, refresh]);
   async function startEnroll() {
     try {
       setEnrolling(true);

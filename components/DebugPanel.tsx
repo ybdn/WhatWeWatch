@@ -9,7 +9,7 @@ import {
 import { useTheme } from '../hooks/useTheme';
 import { supabase } from '../lib/supabase';
 import { useList } from '../context/ListContext';
-import ListServiceSupabase from '../lib/listServiceSupabase';
+import { ListServiceSupabase } from '../lib/listServiceSupabase';
 
 interface DebugPanelProps {
   visible: boolean;
@@ -281,11 +281,13 @@ export default function DebugPanel({ visible, onClose }: DebugPanelProps) {
                       <Text style={{ color: theme.colors.textSecondary, fontSize: 12, fontWeight: 'bold' }}>
                         Échantillon:
                       </Text>
-                      {debugInfo.supabaseData.sample.map((item, index) => (
-                        <Text key={index} style={{ color: theme.colors.textSecondary, fontSize: 11, marginTop: 2 }}>
-                          {item.title} - W:{item.watchlist ? '✅' : '❌'} F:{item.finished ? '✅' : '❌'} ❤:{item.favorite ? '✅' : '❌'}
-                        </Text>
-                      ))}
+                      {debugInfo.supabaseData.sample.map(
+                        (item: { id: string; title: string; watchlist: boolean; finished: boolean; favorite: boolean }, index: number) => (
+                          <Text key={index} style={{ color: theme.colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                            {item.title} - W:{item.watchlist ? '✅' : '❌'} F:{item.finished ? '✅' : '❌'} ❤:{item.favorite ? '✅' : '❌'}
+                          </Text>
+                        )
+                      )}
                     </View>
                   )}
                 </View>
