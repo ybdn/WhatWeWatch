@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Text,
   TouchableOpacity,
@@ -82,9 +82,15 @@ export default function Lists() {
     }
   };
 
-  // Convertir les données de listes pour l'affichage
-  const watchlistData = listManager.watchlist.map(listItem => listItem.contentData);
-  const finishedData = listManager.finished.map(listItem => listItem.contentData);
+  // Convertir les données de listes pour l'affichage - mémorisé pour éviter re-renders
+  const watchlistData = useMemo(() => 
+    listManager.watchlist.map(listItem => listItem.contentData), 
+    [listManager.watchlist]
+  );
+  const finishedData = useMemo(() => 
+    listManager.finished.map(listItem => listItem.contentData), 
+    [listManager.finished]
+  );
 
   // Create tag chips for quick filters
   const filterChips: TagChipItem[] = [
@@ -141,7 +147,7 @@ export default function Lists() {
       {/* Quick filters / actions */}
       <TagChips 
         items={filterChips}
-        containerStyle={{ marginBottom: 4 }}
+        containerStyle={{ marginBottom: 14 }}
       />
 
       {/* Watchlist section */}

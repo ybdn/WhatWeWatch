@@ -210,7 +210,7 @@ export default function DebugPanel({ visible, onClose }: DebugPanelProps) {
                   Supabase disponible: {debugInfo.supabaseAvailable ? '✅' : '❌'}
                 </Text>
                 <Text style={{ color: theme.colors.textSecondary }}>
-                  Variables d'environnement: URL {debugInfo.envVars?.supabaseUrl ? '✅' : '❌'} | Key {debugInfo.envVars?.supabaseKey ? '✅' : '❌'}
+                  Variables d&apos;environnement: URL {debugInfo.envVars?.supabaseUrl ? '✅' : '❌'} | Key {debugInfo.envVars?.supabaseKey ? '✅' : '❌'}
                 </Text>
               </View>
 

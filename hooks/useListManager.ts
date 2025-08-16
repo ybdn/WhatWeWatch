@@ -254,10 +254,10 @@ export function useListManager(): UseListManagerReturn {
       )
       .subscribe();
 
-    // Fallback : polling fréquent (3 secondes) quand l'app est active
+    // Fallback : polling moins fréquent (30 secondes) quand l'app est active
     const pollingInterval = setInterval(() => {
       refreshAllLists().catch(console.error);
-    }, 3000); // 3 secondes
+    }, 30000); // 30 secondes
 
     return () => {
       console.log('Cleaning up sync');

@@ -145,6 +145,13 @@ function CarouselCard({
   
   // Reset states when item changes
   useEffect(() => {
+    console.log('🔄 Item changed, resetting image state for:', item.title, 'ID:', item.id);
+    if (!item.posterUrl) {
+      console.warn('⚠️ No posterUrl for item:', item.title);
+    } else if (!item.posterUrl.startsWith('http')) {
+      console.warn('⚠️ Invalid posterUrl format for item:', item.title, '- URL:', item.posterUrl);
+    }
+    
     setImageLoading(true);
     setImageError(false);
     setCurrentImageUrl(item.posterUrl);
@@ -159,9 +166,16 @@ function CarouselCard({
     if (item.posterUrl && !imageError && imageLoading) {
       const timeout = setTimeout(() => {
         console.warn(`Image timeout for: ${item.title} - ${item.posterUrl}`);
+        // Essayer une taille plus petite en cas de timeout
+        if (item.posterUrl && item.posterUrl.includes('/w500/')) {
+          const fallbackUrl = item.posterUrl.replace('/w500/', '/w300/');
+          console.log(`🔄 Timeout fallback: trying w300 for ${item.title}`);
+          setCurrentImageUrl(fallbackUrl);
+          return; // Laisse une chance au fallback
+        }
         setImageError(true);
         setImageLoading(false);
-      }, 5000); // Réduit à 5 secondes pour une meilleure UX
+      }, 8000); // Augmenté à 8 secondes
       
       setLoadingTimeout(timeout as any);
       
@@ -204,20 +218,31 @@ function CarouselCard({
   };
 
   const handleImageError = (error: any) => {
-    console.warn(`Image failed to load for: ${item.title}`);
-    console.warn(`Failed URL: ${currentImageUrl}`);
-    console.warn('Error details:', error);
+    console.warn(`🖼️ Image failed to load for: ${item.title}`);
+    console.warn(`❌ Failed URL: ${currentImageUrl}`);
+    console.warn('📋 Item posterUrl:', item.posterUrl);
+    console.warn('⚠️ Error details:', error);
     
     // Essayer avec une taille différente d'image si disponible
     if (currentImageUrl?.includes('/w500/') && item.posterUrl) {
       const fallbackUrl = item.posterUrl.replace('/w500/', '/w300/');
-      console.log(`Trying fallback URL: ${fallbackUrl}`);
+      console.log(`🔄 Trying fallback URL (w300): ${fallbackUrl}`);
+      setCurrentImageUrl(fallbackUrl);
+      setImageLoading(true);
+      return;
+    }
+    
+    // Essayer avec la taille originale si on était en w300
+    if (currentImageUrl?.includes('/w300/') && item.posterUrl) {
+      const fallbackUrl = item.posterUrl.replace('/w300/', '/original/');
+      console.log(`🔄 Trying fallback URL (original): ${fallbackUrl}`);
       setCurrentImageUrl(fallbackUrl);
       setImageLoading(true);
       return;
     }
     
     // Si tous les fallbacks ont échoué, afficher l'erreur
+    console.error(`🚫 All image loading attempts failed for: ${item.title}`);
     setImageError(true);
     setImageLoading(false);
     if (loadingTimeout) {

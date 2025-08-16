@@ -272,7 +272,7 @@ export const tmdbApi = {
   getTrendingMovies: async (timeWindow: 'day' | 'week' = 'week'): Promise<ContentItem[]> => {
     const data = await tmdbRequest<TMDBSearchResults<TMDBMovie>>(`/trending/movie/${timeWindow}`);
     const movies = await Promise.allSettled(
-      data.results.slice(0, 10).map(movie => convertMovieToContentItem(movie))
+      data.results.slice(0, 20).map(movie => convertMovieToContentItem(movie))
     );
     return movies
       .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
@@ -283,7 +283,7 @@ export const tmdbApi = {
   getTrendingTVShows: async (timeWindow: 'day' | 'week' = 'week'): Promise<ContentItem[]> => {
     const data = await tmdbRequest<TMDBSearchResults<TMDBTVShow>>(`/trending/tv/${timeWindow}`);
     const shows = await Promise.allSettled(
-      data.results.slice(0, 10).map(show => convertTVShowToContentItem(show))
+      data.results.slice(0, 20).map(show => convertTVShowToContentItem(show))
     );
     return shows
       .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
@@ -294,7 +294,7 @@ export const tmdbApi = {
   getPopularMovies: async (): Promise<ContentItem[]> => {
     const data = await tmdbRequest<TMDBSearchResults<TMDBMovie>>('/movie/popular');
     const movies = await Promise.allSettled(
-      data.results.slice(0, 10).map(movie => convertMovieToContentItem(movie))
+      data.results.slice(0, 20).map(movie => convertMovieToContentItem(movie))
     );
     return movies
       .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
@@ -305,7 +305,7 @@ export const tmdbApi = {
   getPopularTVShows: async (): Promise<ContentItem[]> => {
     const data = await tmdbRequest<TMDBSearchResults<TMDBTVShow>>('/tv/popular');
     const shows = await Promise.allSettled(
-      data.results.slice(0, 10).map(show => convertTVShowToContentItem(show))
+      data.results.slice(0, 20).map(show => convertTVShowToContentItem(show))
     );
     return shows
       .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
@@ -316,7 +316,7 @@ export const tmdbApi = {
   getTopRatedMovies: async (): Promise<ContentItem[]> => {
     const data = await tmdbRequest<TMDBSearchResults<TMDBMovie>>('/movie/top_rated');
     const movies = await Promise.allSettled(
-      data.results.slice(0, 10).map(movie => convertMovieToContentItem(movie))
+      data.results.slice(0, 20).map(movie => convertMovieToContentItem(movie))
     );
     return movies
       .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
@@ -327,7 +327,7 @@ export const tmdbApi = {
   getTopRatedTVShows: async (): Promise<ContentItem[]> => {
     const data = await tmdbRequest<TMDBSearchResults<TMDBTVShow>>('/tv/top_rated');
     const shows = await Promise.allSettled(
-      data.results.slice(0, 10).map(show => convertTVShowToContentItem(show))
+      data.results.slice(0, 20).map(show => convertTVShowToContentItem(show))
     );
     return shows
       .filter((result): result is PromiseFulfilledResult<ContentItem> => result.status === 'fulfilled')
@@ -351,11 +351,11 @@ export const tmdbApi = {
       
       // Convert results
       const movieItems = await Promise.allSettled(
-        movieResults.results.slice(0, 10).map(movie => convertMovieToContentItem(movie))
+        movieResults.results.slice(0, 20).map(movie => convertMovieToContentItem(movie))
       );
       
       const tvItems = await Promise.allSettled(
-        tvResults.results.slice(0, 10).map(tv => convertTVShowToContentItem(tv))
+        tvResults.results.slice(0, 20).map(tv => convertTVShowToContentItem(tv))
       );
       
       const successfulMovies = movieItems
@@ -400,35 +400,35 @@ export const tmdbApi = {
 
   // Thematic collections for explore page
   
-  // Nouveautés - Recent releases (movies and TV shows from last 6 months)
+  // Nouveautés - Recent releases (movies and TV shows from last year)
   getNewReleases: async (): Promise<ContentItem[]> => {
     const now = new Date();
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+    const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
     const currentYear = now.getFullYear();
-    const sixMonthsAgoDate = sixMonthsAgo.toISOString().split('T')[0];
+    const oneYearAgoDate = oneYearAgo.toISOString().split('T')[0];
     const todayDate = now.toISOString().split('T')[0];
     
     try {
       const [movieData, tvData, popularMovies] = await Promise.allSettled([
-        // Recent movies (last 6 months)
+        // Recent movies (last year) - more lenient criteria
         tmdbRequest<TMDBSearchResults<TMDBMovie>>('/discover/movie', {
-          'primary_release_date.gte': sixMonthsAgoDate,
+          'primary_release_date.gte': oneYearAgoDate,
           'primary_release_date.lte': todayDate,
           'sort_by': 'popularity.desc',
-          'vote_count.gte': '50',
+          'vote_count.gte': '10', // Much lower threshold
         }),
-        // Recent TV shows (last 6 months)
+        // Recent TV shows (last year) - more lenient criteria
         tmdbRequest<TMDBSearchResults<TMDBTVShow>>('/discover/tv', {
-          'first_air_date.gte': sixMonthsAgoDate,
+          'first_air_date.gte': oneYearAgoDate,
           'first_air_date.lte': todayDate,
           'sort_by': 'popularity.desc',
-          'vote_count.gte': '20',
+          'vote_count.gte': '5', // Much lower threshold
         }),
         // Popular movies from current year as backup
         tmdbRequest<TMDBSearchResults<TMDBMovie>>('/discover/movie', {
           'primary_release_year': currentYear.toString(),
           'sort_by': 'popularity.desc',
-          'vote_count.gte': '100',
+          'vote_count.gte': '20', // Lower threshold
         }),
       ]);
       
@@ -480,32 +480,32 @@ export const tmdbApi = {
   // Acclamés par la critique - Award winners and high-rated content
   getCriticsChoice: async (): Promise<ContentItem[]> => {
     try {
-      const [topMovies, topTVShows, awardMovies, criticallyAcclaimed, recentCritical] = await Promise.allSettled([
-        // Top rated movies with substantial vote count
+      const [topMovies, topTVShows, highRatedMovies, highRatedTVShows, recentCritical] = await Promise.allSettled([
+        // Top rated movies with lower threshold
         tmdbRequest<TMDBSearchResults<TMDBMovie>>('/movie/top_rated', {
-          'vote_count.gte': '2000',
+          'vote_count.gte': '100', // Much lower threshold
         }),
-        // Top rated TV shows with substantial vote count
+        // Top rated TV shows with lower threshold
         tmdbRequest<TMDBSearchResults<TMDBTVShow>>('/tv/top_rated', {
-          'vote_count.gte': '1000',
+          'vote_count.gte': '50', // Much lower threshold
         }),
-        // Discover highly rated movies (8.0+) with many votes
+        // Discover highly rated movies (7.0+) with reasonable votes
         tmdbRequest<TMDBSearchResults<TMDBMovie>>('/discover/movie', {
-          'vote_average.gte': '8.0',
-          'vote_count.gte': '1500',
+          'vote_average.gte': '7.0', // Lower threshold
+          'vote_count.gte': '100', // Much lower threshold
           'sort_by': 'vote_average.desc',
         }),
-        // Discover highly rated TV shows (8.5+) with many votes
+        // Discover highly rated TV shows (7.5+) with reasonable votes
         tmdbRequest<TMDBSearchResults<TMDBTVShow>>('/discover/tv', {
-          'vote_average.gte': '8.5',
-          'vote_count.gte': '500',
+          'vote_average.gte': '7.5', // Lower threshold
+          'vote_count.gte': '50', // Much lower threshold
           'sort_by': 'vote_average.desc',
         }),
-        // Recent critically acclaimed content (last 3 years)
+        // Recent critically acclaimed content (last 3 years) - broader criteria
         tmdbRequest<TMDBSearchResults<TMDBMovie>>('/discover/movie', {
           'primary_release_date.gte': `${new Date().getFullYear() - 3}-01-01`,
-          'vote_average.gte': '7.5',
-          'vote_count.gte': '1000',
+          'vote_average.gte': '6.5', // Lower threshold
+          'vote_count.gte': '50', // Much lower threshold
           'sort_by': 'vote_average.desc',
         }),
       ]);
@@ -532,10 +532,10 @@ export const tmdbApi = {
         });
       }
       
-      // Add award-worthy movies
-      if (awardMovies.status === 'fulfilled') {
+      // Add high rated movies
+      if (highRatedMovies.status === 'fulfilled') {
         const movies = await Promise.allSettled(
-          awardMovies.value.results.slice(0, 4).map(movie => convertMovieToContentItem(movie))
+          highRatedMovies.value.results.slice(0, 6).map(movie => convertMovieToContentItem(movie))
         );
         movies.forEach(result => {
           if (result.status === 'fulfilled' && !allResults.find(item => item.id === result.value.id)) {
@@ -544,10 +544,10 @@ export const tmdbApi = {
         });
       }
       
-      // Add critically acclaimed TV shows
-      if (criticallyAcclaimed.status === 'fulfilled') {
+      // Add high rated TV shows
+      if (highRatedTVShows.status === 'fulfilled') {
         const shows = await Promise.allSettled(
-          criticallyAcclaimed.value.results.slice(0, 4).map(show => convertTVShowToContentItem(show))
+          highRatedTVShows.value.results.slice(0, 6).map(show => convertTVShowToContentItem(show))
         );
         shows.forEach(result => {
           if (result.status === 'fulfilled' && !allResults.find(item => item.id === result.value.id)) {
@@ -582,7 +582,7 @@ export const tmdbApi = {
   // Célébrons les fiertés - LGBTQ+ and diversity content
   getPrideContent: async (): Promise<ContentItem[]> => {
     try {
-      console.log('Fetching Pride content...');
+      // console.log('Fetching Pride content...');
       
       // Search for LGBTQ+ themed content using various keywords and approaches
       const searches = await Promise.allSettled([
@@ -668,7 +668,7 @@ export const tmdbApi = {
       searches.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           const data = result.value;
-          console.log(`Search ${index} successful: ${data.results.length} results`);
+          // console.log(`Search ${index} successful: ${data.results.length} results`);
           
           // Determine if it's movie or TV results based on the structure
           if (data.results.length > 0) {
@@ -681,12 +681,12 @@ export const tmdbApi = {
             }
           }
         } else {
-          console.log(`Search ${index} failed:`, result.reason);
+          // console.log(`Search ${index} failed:`, result.reason);
         }
       });
       
-      console.log(`Total movie results: ${allMovieResults.length}`);
-      console.log(`Total TV results: ${allTVResults.length}`);
+      // console.log(`Total movie results: ${allMovieResults.length}`);
+      // console.log(`Total TV results: ${allTVResults.length}`);
       
       // Remove duplicates
       const uniqueMovies = allMovieResults.filter((movie, index, self) => 
@@ -696,8 +696,8 @@ export const tmdbApi = {
         index === self.findIndex(s => s.id === show.id)
       );
       
-      console.log(`Unique movies: ${uniqueMovies.length}`);
-      console.log(`Unique TV shows: ${uniqueTV.length}`);
+      // console.log(`Unique movies: ${uniqueMovies.length}`);
+      // console.log(`Unique TV shows: ${uniqueTV.length}`);
       
       const allResults: ContentItem[] = [];
       
@@ -712,7 +712,7 @@ export const tmdbApi = {
           allResults.push(result.value);
           successfulMovies++;
         } else {
-          console.log('Movie conversion failed:', result.reason);
+          // console.log('Movie conversion failed:', result.reason);
         }
       });
       
@@ -727,16 +727,16 @@ export const tmdbApi = {
           allResults.push(result.value);
           successfulTV++;
         } else {
-          console.log('TV conversion failed:', result.reason);
+          // console.log('TV conversion failed:', result.reason);
         }
       });
       
-      console.log(`Successfully converted: ${successfulMovies} movies, ${successfulTV} TV shows`);
-      console.log(`Total Pride content items: ${allResults.length}`);
+      // console.log(`Successfully converted: ${successfulMovies} movies, ${successfulTV} TV shows`);
+      // console.log(`Total Pride content items: ${allResults.length}`);
       
       // If we still have too few results, add some popular drama content as fallback
       if (allResults.length < 10) {
-        console.log('Adding fallback drama content...');
+        // console.log('Adding fallback drama content...');
         try {
           const fallbackDrama = await tmdbRequest<TMDBSearchResults<TMDBMovie>>('/discover/movie', {
             'with_genres': '18', // Drama genre
@@ -755,9 +755,9 @@ export const tmdbApi = {
             }
           });
           
-          console.log(`After adding drama fallback: ${allResults.length} total items`);
+          // console.log(`After adding drama fallback: ${allResults.length} total items`);
         } catch (fallbackError) {
-          console.log('Fallback drama search failed:', fallbackError);
+          // console.log('Fallback drama search failed:', fallbackError);
         }
       }
       
@@ -766,7 +766,7 @@ export const tmdbApi = {
         .sort((a, b) => b.rating - a.rating)
         .slice(0, 25); // Increased limit
         
-      console.log(`Final Pride content count: ${finalResults.length}`);
+      // console.log(`Final Pride content count: ${finalResults.length}`);
       return finalResults;
         
     } catch (error) {
@@ -891,7 +891,7 @@ export const tmdbApi = {
       
       // Convert TV shows
       const tvItems = await Promise.allSettled(
-        uniqueTV.slice(0, 10).map(show => convertTVShowToContentItem(show))
+        uniqueTV.slice(0, 20).map(show => convertTVShowToContentItem(show))
       );
       tvItems.forEach(result => {
         if (result.status === 'fulfilled') allResults.push(result.value);

@@ -60,10 +60,10 @@ export class ListServiceSupabase {
 
       if (error) {
         console.error('Supabase error:', error);
-        // Si la table n'existe pas encore, retourner liste vide au lieu de local
+        // Si la table n'existe pas encore, utiliser le fallback local
         if (error.code === 'PGRST205') {
-          console.log('Table user_content_status not found, returning empty list. Create the table in Supabase first.');
-          return [];
+          console.log('Table user_content_status not found, falling back to local storage.');
+          return await ListService.getWatchlist();
         }
         // Pour d'autres erreurs, utiliser le fallback local
         return await ListService.getWatchlist();
@@ -211,10 +211,10 @@ export class ListServiceSupabase {
 
       if (error) {
         console.error('Supabase error:', error);
-        // Si la table n'existe pas encore, retourner liste vide
+        // Si la table n'existe pas encore, utiliser le fallback local
         if (error.code === 'PGRST205') {
-          console.log('Table user_content_status not found for finished items, returning empty list.');
-          return [];
+          console.log('Table user_content_status not found for finished items, falling back to local storage.');
+          return await ListService.getFinished();
         }
         // Pour d'autres erreurs, utiliser le fallback local
         return await ListService.getFinished();
@@ -335,10 +335,10 @@ export class ListServiceSupabase {
 
       if (error) {
         console.error('Supabase error:', error);
-        // Si la table n'existe pas encore, retourner liste vide
+        // Si la table n'existe pas encore, utiliser le fallback local
         if (error.code === 'PGRST205') {
-          console.log('Table user_content_status not found for favorites, returning empty list.');
-          return [];
+          console.log('Table user_content_status not found for favorites, falling back to local storage.');
+          return await ListService.getFavorites();
         }
         // Pour d'autres erreurs, utiliser le fallback local
         return await ListService.getFavorites();

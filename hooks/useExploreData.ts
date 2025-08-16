@@ -4,6 +4,7 @@ import { curatedCollections } from "../lib/curatedCollections";
 import { MediaSearchResult, searchMedia } from "../lib/searchService";
 import { tmdbApi, ContentItem } from "../lib/tmdbService";
 import { useDebounce } from "./useDebounce";
+import { useList } from "../context/ListContext";
 
 export interface ExploreSection {
   id: string;
@@ -32,6 +33,7 @@ export function useExploreData(): ExploreState {
   const [error, setError] = useState(false);
   const [results, setResults] = useState<ContentItem[]>([]);
   const lastTrackedQueryRef = useRef<string>("");
+  const listManager = useList();
   
   // States for home sections (TMDB data)
   const [sectionsLoading, setSectionsLoading] = useState(false);
@@ -44,6 +46,30 @@ export function useExploreData(): ExploreState {
   const [criticsChoice, setCriticsChoice] = useState<ContentItem[]>([]);
   const [prideContent, setPrideContent] = useState<ContentItem[]>([]);
   const [worldPerspectives, setWorldPerspectives] = useState<ContentItem[]>([]);
+
+  // Function to filter out content that's already in user lists
+  const filterContentAlreadyInLists = (content: ContentItem[]): ContentItem[] => {
+    return content.filter(item => {
+      const isInAnyList = listManager.isInWatchlist(item.id) || 
+                         listManager.isFinished(item.id) || 
+                         listManager.isFavorite(item.id);
+      return !isInAnyList;
+    });
+  };
+
+  // Function to load additional content to replace filtered items
+  const loadAdditionalContent = async (originalData: ContentItem[], targetCount: number = 8): Promise<ContentItem[]> => {
+    const filtered = filterContentAlreadyInLists(originalData);
+    
+    // If we have enough content after filtering, return it
+    if (filtered.length >= targetCount) {
+      return filtered.slice(0, targetCount);
+    }
+    
+    // We'll return what we have - the TMDB service now fetches more content (20 items instead of 10)
+    // to increase chances of having enough items after filtering
+    return filtered;
+  };
 
   // Load home sections data from TMDB
   useEffect(() => {
@@ -69,8 +95,9 @@ export function useExploreData(): ExploreState {
         ]);
         
         if (!cancelled) {
-          setTopRated(topRatedData.slice(0, 8));
-          setTrending(trendingData.slice(0, 8));
+          // Store raw data - filtering will be applied in useMemo
+          setTopRated(topRatedData.slice(0, 20));
+          setTrending(trendingData.slice(0, 20));
           setNewReleases(newReleasesData);
           setCriticsChoice(criticsChoiceData);
           setPrideContent(prideContentData);
@@ -93,7 +120,7 @@ export function useExploreData(): ExploreState {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, []); // Only load once - filtering is applied in useMemo below
 
   // Search effect
   useEffect(() => {
@@ -107,14 +134,17 @@ export function useExploreData(): ExploreState {
       setError(false);
       try {
         // Use TMDB search instead of legacy search
-        const r = await tmdbApi.searchMulti(debounced.trim());
-        if (!cancelled) setResults(r);
+        const searchResults = await tmdbApi.searchMulti(debounced.trim());
+        // Filter out content already in lists from search results too
+        const filteredResults = filterContentAlreadyInLists(searchResults);
+        if (!cancelled) setResults(filteredResults);
       } catch (searchError) {
         console.error('Search error:', searchError);
         // Fallback to legacy search if TMDB fails
         try {
           const fallbackResults = await searchMedia(debounced.trim());
-          if (!cancelled) setResults(fallbackResults as any); // Type cast for compatibility
+          const filteredFallbackResults = filterContentAlreadyInLists(fallbackResults as any);
+          if (!cancelled) setResults(filteredFallbackResults as any); // Type cast for compatibility
         } catch {
           if (!cancelled) setError(true);
           track("explore_search_error", { q_len: debounced.trim().length });
@@ -145,69 +175,74 @@ export function useExploreData(): ExploreState {
     // Mode d'accueil: top + trending + curated collections avec vraies données TMDB
     const homeSections: ExploreSection[] = [];
     
-    // Add top rated section if data is available
-    if (topRated.length > 0) {
+    // Apply filtering and add sections with filtered data
+    const filteredTopRated = filterContentAlreadyInLists(topRated).slice(0, 8);
+    if (filteredTopRated.length > 0) {
       homeSections.push({
         id: "top",
         title: "Les mieux notés",
         type: "top",
-        items: topRated,
+        items: filteredTopRated,
       });
     }
     
-    // Add trending section if data is available  
-    if (trending.length > 0) {
+    const filteredTrending = filterContentAlreadyInLists(trending).slice(0, 8);
+    if (filteredTrending.length > 0) {
       homeSections.push({
         id: "trending",
         title: "Tendances",
         type: "trending",
-        items: trending,
+        items: filteredTrending,
       });
     }
     
-    // Add dynamic thematic collections with real TMDB data
-    if (newReleases.length > 0) {
+    // Add dynamic thematic collections with filtered data
+    const filteredNewReleases = filterContentAlreadyInLists(newReleases).slice(0, 8);
+    if (filteredNewReleases.length > 0) {
       homeSections.push({
         id: "new_releases",
         title: "Nouveautés",
         subtitle: "Fraîchement sortis de l'écran",
         type: "collection" as const,
-        items: newReleases,
+        items: filteredNewReleases,
       });
     }
     
-    if (criticsChoice.length > 0) {
+    const filteredCriticsChoice = filterContentAlreadyInLists(criticsChoice).slice(0, 8);
+    if (filteredCriticsChoice.length > 0) {
       homeSections.push({
         id: "critics_choice",
         title: "Acclamés par la critique",
         subtitle: "Les pépites qui font l'unanimité",
         type: "collection" as const,
-        items: criticsChoice,
+        items: filteredCriticsChoice,
       });
     }
     
-    if (prideContent.length > 0) {
+    const filteredPrideContent = filterContentAlreadyInLists(prideContent).slice(0, 8);
+    if (filteredPrideContent.length > 0) {
       homeSections.push({
         id: "pride",
         title: "Célébrons les fiertés",
         subtitle: "Diversité & voix queer",
         type: "collection" as const,
-        items: prideContent,
+        items: filteredPrideContent,
       });
     }
     
-    if (worldPerspectives.length > 0) {
+    const filteredWorldPerspectives = filterContentAlreadyInLists(worldPerspectives).slice(0, 8);
+    if (filteredWorldPerspectives.length > 0) {
       homeSections.push({
         id: "world_society",
         title: "Regards sur le monde",
         subtitle: "Géopolitique, climat & dynamiques sociales",
         type: "collection" as const,
-        items: worldPerspectives,
+        items: filteredWorldPerspectives,
       });
     }
     
     return homeSections;
-  }, [debounced, results, topRated, trending, newReleases, criticsChoice, prideContent, worldPerspectives]);
+  }, [debounced, results, topRated, trending, newReleases, criticsChoice, prideContent, worldPerspectives, listManager.watchlist, listManager.finished, listManager.favorites]);
 
   // Tracking basique (ex: impression sections accueil seulement quand aucune recherche)
   useEffect(() => {
